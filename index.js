@@ -116,7 +116,7 @@ nodeNative['path'] = require('path');
  * @type {{}}
  */
 
-var mimeTypesContent = nodeNative.fs.readFileSync("mime.json", "utf8");
+var mimeTypesContent = nodeNative.fs.readFileSync(__dirname + "/mime.json", "utf8");
 var mimeTypes = JSON.parse(mimeTypesContent);
 var canStart = true;
 if (Object.isEmpty(mimeTypes)) {
@@ -151,11 +151,11 @@ var acceptedMethods = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS
 var serverFunction = function (req, res) {
     // first of all this part should never exist if there's NGINX running in front of node.
     // this is going to be similar to "try_files" directive from NGINX
-    console.log('Serving request for url: ', req.url, 'from ', req.connection.remoteAddress);
+    console.log('Serving request for url: ', req.url, 'from ', req.connection.remoteAddress, req.connection.remotePort);
     if (nodeNative.fs.existsSync(pathToApp + '/public' + req.url) &&
-        nodeNative.fs.statSync(pathToApp + '/public' + req.url).isFile()) {
+        nodeNative.fs.statSync(pathToApp + '/public' + req.url).isFile()) { // serve physical file
         var fileExtension = req.url.substr((req.url.lastIndexOf(".")));
-        if (typeof(mimeTypes[fileExtension]) == "string") {
+        if (typeof (mimeTypes[fileExtension]) == "string") {
             res.writeHead(200, {"Content-Type": mimeTypes[fileExtension]});
         }
         var frs = nodeNative.fs.createReadStream(pathToApp + '/public' + req.url);
@@ -301,8 +301,8 @@ exports.start = function (portNumber, pathToApplication, sslCfg) {
 
     var wss = new WebSocket.Server({server: httpServer});
     wss.on('connection', function(WS){
-        console.log("connection made", WS.upgradeReq.connection.remoteAddress + " : " + WS.upgradeReq.connection.remotePort);
-        WS.send("Welcome ");
+        //console.log("connection made", WS.upgradeReq.connection.remoteAddress + " : " + WS.upgradeReq.connection.remotePort);
+        //WS.send("Welcome ");
         WS.on("message", function(message){
             WS.send("test");
             console.log('message: '+ message);
