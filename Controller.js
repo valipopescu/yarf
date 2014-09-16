@@ -16,6 +16,7 @@ var constructor = function(){
      * HTTP Status code sent to the requester
      * @type {number}
      */
+    this.requestHeaders = {};
     this.responseCode = 200; // by default?
     this.urlParams = [];
     this._POST = {}; // FORM kind of posts
