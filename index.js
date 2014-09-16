@@ -147,11 +147,7 @@ application.controllers["Error"] = require('./Controllers/Error.js');
  **/
 var pathToApp = "";
 var acceptedMethods = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'];// NOT ACCEPTING TRACE!!!
-
-var serverFunction = function (req, res) {
-    // first of all this part should never exist if there's NGINX running in front of node.
-    // this is going to be similar to "try_files" directive from NGINX
-    console.log('Serving request for url: ', req.url, 'from ', req.connection.remoteAddress, req.connection.remotePort);
+var servePhysicalFiles = function(req, res){
     if (nodeNative.fs.existsSync(pathToApp + '/public' + req.url) &&
         nodeNative.fs.statSync(pathToApp + '/public' + req.url).isFile()) { // serve physical file
         var fileExtension = req.url.substr((req.url.lastIndexOf(".")));
@@ -160,117 +156,132 @@ var serverFunction = function (req, res) {
         }
         var frs = nodeNative.fs.createReadStream(pathToApp + '/public' + req.url);
         frs.pipe(res);
-    } else {
-        if (acceptedMethods.indexOf(req.method) == -1) { // simply refuse unaccepted methods.
-            res.statusCode = 501;
-            return;
-        }
-        //TODO: Handle File Upload. For now it's not going to be handled as I don't need it
-        var requestedURL = nodeNative.url.parse(req.url, true);
-        requestedURL.pathArray = requestedURL.pathname.split('/').trim();
-        var foundPath = false;
-        var controllerPath = "";
-        var controllerName = "";
-        if (requestedURL.pathArray.isEmpty()) {
-            controllerPath = "index";
-            controllerName = "index";
-            var controllerDiskPath = nodeNative.path.join(pathToApp, "/Modules/", controllerPath, 'controller.js');
-            if (nodeNative.fs.existsSync(controllerDiskPath)) {
-                if (typeof(application.controllers[controllerName]) == "undefined") {
-                    application.controllers[controllerName] = require(controllerDiskPath);
-                }
-                foundPath = true;
+        return true;
+    }
+    return false;
+}
+
+var loadController = function(requestedURL){
+    var controllerName = "";
+    var controllerPath = "";
+    if (requestedURL.pathArray.isEmpty()) { // index controller...
+        controllerPath = "index";
+        controllerName = "index";
+        var controllerDiskPath = nodeNative.path.join(pathToApp, "/Modules/", controllerPath, 'controller.js');
+        if (nodeNative.fs.existsSync(controllerDiskPath)) {
+            if (typeof(application.controllers[controllerName]) == "undefined") {
+                application.controllers[controllerName] = require(controllerDiskPath);
             }
-        } else {
-            for (var pathComponent in requestedURL.pathArray) {
-                if (typeof requestedURL.pathArray[pathComponent] == 'string') {
-                    controllerPath = controllerPath + "/" + requestedURL.pathArray[pathComponent];
-                    controllerName = requestedURL.pathArray[pathComponent];
-                    if (nodeNative.fs.existsSync(nodeNative.path.join(pathToApp, "/Modules/", controllerPath))) {
-                        var controllerDiskPath = nodeNative.path.join(pathToApp, "/Modules/", controllerPath, 'controller.js');
-                        if (nodeNative.fs.existsSync(controllerDiskPath)) {
-                            if (typeof(application.controllers[controllerName]) == "undefined") {
-                                console.log("Loading ... ", controllerName);
-                                application.controllers[controllerName] = require(controllerDiskPath);
-                                console.log('Loaded: ', application);
-                            }
-                            foundPath = true;
-                            break;
+            foundPath = true;
+        }
+    } else { // any other controller
+        for (var pathComponent in requestedURL.pathArray) {
+            if (typeof requestedURL.pathArray[pathComponent] == 'string') {
+                controllerPath = controllerPath + "/" + requestedURL.pathArray[pathComponent];
+                controllerName = requestedURL.pathArray[pathComponent];
+                if (nodeNative.fs.existsSync(nodeNative.path.join(pathToApp, "/Modules/", controllerPath))) {
+                    var controllerDiskPath = nodeNative.path.join(pathToApp, "/Modules/", controllerPath, 'controller.js');
+                    if (nodeNative.fs.existsSync(controllerDiskPath)) {
+                        if (typeof(application.controllers[controllerName]) == "undefined") {
+                            console.log("Loading ... ", controllerName);
+                            application.controllers[controllerName] = require(controllerDiskPath);
+                            console.log('Loaded: ', application);
                         }
-                    } else {
+                        foundPath = true;
                         break;
                     }
-                }
-            }
-        }
-        if (!foundPath) { // refuse requests for modules that don't exist.
-            res.statusCode = 501;
-            console.log("Couldn't find a module for the requested url: " + req.url, requestedURL);
-            res.end();
-            return;
-        }
-        requestedURL.pathArray = requestedURL.pathname.replace(controllerPath, "").split('/').trim();
-        var methodName = "";
-        if (requestedURL.pathArray.isEmpty()) {
-            methodName = "index";
-        } else {
-            methodName = requestedURL.pathArray.shift();
-        }
-        if (req.method == "OPTIONS") {
-            res.statusCode = 200;
-            var controllerAcceptedMethods = [];
-            var methodRegexp = new RegExp(methodName, 'i');
-            for (var controllerMethodName in application.controllers[controllerName].prototype) {
-                if (Object.prototype[controllerMethodName] == application.controllers[controllerName].prototype[controllerMethodName]) {
-                    continue;// ignore base Object methods. it may well be that there's a method in the controller called isEmpty...
-                    // it won't be ignored (mainly because it can't be identical to the one in Object ... if it is then it's ignored)
-                }
-                if (typeof application.controllers[controllerName].prototype[controllerMethodName] == "function" && controllerMethodName.match(methodRegexp) != null) {
-                    var acceptedMethod = controllerMethodName.replace(methodRegexp, "").toUpperCase();
-                    if (acceptedMethod == "") {
-                        acceptedMethod = "GET";
-                    }
-                    if (acceptedMethods.indexOf(acceptedMethod) >= 0) {
-                        controllerAcceptedMethods.push(acceptedMethod); // it'll push multiple times to show there's multiple get methods. twice means a version for more than one HTTP method purpose ... shouldn't be more than twice :)
-                    }
-                }
-            }
-            res.setHeader("Allow", controllerAcceptedMethods.join(', '));
-            res.end();
-        }
-        var controllerInstance = null;
-        methodName = req.method.toLowerCase() + methodName.ucFirst();
-        var endFunction = function () { // don't depend on promises. just notify when done.
-            res.statusCode = this.statusCode || res.statusCode;
-            if (typeof this.headers == "object" && !this.headers.isEmpty()) {
-                for (var headerName in this.headers) {
-                    res.setHeader(headerName, this.headers[headerName]);
-                }
-            }
-            switch (req.headers['accept']) {
-                case 'application/json':
-                    if (typeof this.response == "object" && !this.response.isEmpty())
-                        res.write(JSON.stringify(this.response));
+                } else {
                     break;
-                case 'text/html':
-                case '*/*':
-                    if (typeof this.response == "object") {
-                        // test whether a view can be found, load it and pass everything in...
-                    }
-                default :
-                    if (typeof this.response == "string" && !this.response.isEmpty())
-                        res.write(this.response.toString());
+                }
             }
-            res.end();
         }
-        application.controllers[controllerName].prototype.end = endFunction;
-        if (typeof application.controllers[controllerName].prototype[methodName] == "function") {// now we know that the method is there...
-            controllerInstance = new (application.controllers[controllerName])();// finally create an instance for the controller
-            application.controllers[controllerName].prototype[methodName].apply(controllerInstance);
-        } else {
-            res.statusCode = 501; // Not implemented.
-            endFunction();
+    }
+    return foundPath ? {controllerName: controllerName, controllerPath: controllerPath} : null;
+}
+var serverFunction = function (req, res) {
+    // first of all this part should never exist if there's NGINX running in front of node.
+    // this is going to be similar to "try_files" directive from NGINX
+    console.log('Serving request for url: ', req.url, 'from ', req.connection.remoteAddress, req.connection.remotePort);
+    if (acceptedMethods.indexOf(req.method) == -1) { // simply refuse unaccepted methods.
+        res.statusCode = 501;
+        return;
+    }
+    if (servePhysicalFiles(req,res)){
+        return;
+    }
+    //TODO: Handle File Upload. For now it's not going to be handled as I don't need it
+    var requestedURL = nodeNative.url.parse(req.url, true);
+    requestedURL.pathArray = requestedURL.pathname.split('/').trim();
+    var loadedController = loadController(requestedURL);
+    if (loadedController == null) { // refuse requests for modules that don't exist.
+        res.statusCode = 501;
+        console.log("Couldn't find a module for the requested url: " + req.url, requestedURL);
+        res.end();
+        return;
+    }
+
+    requestedURL.pathArray = requestedURL.pathname.replace(loadedController.controllerPath, "").split('/').trim();
+    var methodName = "";
+    if (requestedURL.pathArray.isEmpty()) {
+        methodName = "index";
+    } else {
+        methodName = requestedURL.pathArray.shift();
+    }
+
+    if (req.method == "OPTIONS") {
+        res.statusCode = 200;
+        var controllerAcceptedMethods = [];
+        var methodRegexp = new RegExp(methodName, 'i');
+        for (var controllerMethodName in application.controllers[loadedController.controllerName].prototype) {
+            if (Object.prototype[controllerMethodName] == application.controllers[loadedController.controllerName].prototype[loadedController.controllerMethodName]) {
+                continue;// ignore base Object methods. it may well be that there's a method in the controller called isEmpty...
+                // it won't be ignored (mainly because it can't be identical to the one in Object ... if it is then it's ignored)
+            }
+            if (typeof application.controllers[loadedController.controllerName].prototype[controllerMethodName] == "function" && controllerMethodName.match(methodRegexp) != null) {
+                var acceptedMethod = controllerMethodName.replace(methodRegexp, "").toUpperCase();
+                if (acceptedMethod == "") {
+                    acceptedMethod = "GET";
+                }
+                if (acceptedMethods.indexOf(acceptedMethod) >= 0) {
+                    controllerAcceptedMethods.push(acceptedMethod); // it'll push multiple times to show there's multiple get methods. twice means a version for more than one HTTP method purpose ... shouldn't be more than twice :)
+                }
+            }
         }
+        res.setHeader("Allow", controllerAcceptedMethods.join(', '));
+        res.end();
+    }
+    var controllerInstance = null;
+    methodName = req.method.toLowerCase() + methodName.ucFirst();
+    var endFunction = function () { // don't depend on promises. just notify when done.
+        res.statusCode = this.statusCode || res.statusCode;
+        if (typeof this.headers == "object" && !this.headers.isEmpty()) {
+            for (var headerName in this.headers) {
+                res.setHeader(headerName, this.headers[headerName]);
+            }
+        }
+        switch (req.headers['accept']) {
+            case 'application/json':
+                if (typeof this.response == "object" && !this.response.isEmpty())
+                    res.write(JSON.stringify(this.response));
+                break;
+            case 'text/html':
+            case '*/*':
+                if (typeof this.response == "object") {
+                    // test whether a view can be found, load it and pass everything in...
+                }
+            default :
+                if (typeof this.response == "string" && !this.response.isEmpty())
+                    res.write(this.response.toString());
+        }
+        res.end();
+    }
+    application.controllers[loadedController.controllerName].prototype.end = endFunction;
+    if (typeof application.controllers[loadedController.controllerName].prototype[methodName] == "function") {// now we know that the method is there...
+        controllerInstance = new (application.controllers[loadedController.controllerName])();// finally create an instance for the controller
+        application.controllers[loadedController.controllerName].prototype[methodName].apply(controllerInstance);
+    } else {
+        res.statusCode = 501; // Not implemented.
+        endFunction();
     }
 }
 var WebSocket = require("ws");
@@ -292,22 +303,22 @@ exports.start = function (portNumber, pathToApplication, sslCfg) {
         return false;
     }
     var httpServer;
-    if(typeof sslCfg == "undefined" || typeof sslCfg.key == "undefined" || typeof sslCfg.cert == "undefined"){
+    if (typeof sslCfg == "undefined" || typeof sslCfg.key == "undefined" || typeof sslCfg.cert == "undefined") {
         httpServer = nodeNative.http.createServer(serverFunction)
-    }else{
+    } else {
         httpServer = nodeNative.http.createServer({key: sslCfg.key, cert: sslCfg.cert}, serverFunction);
     }
     pathToApp = pathToApplication;
 
     var wss = new WebSocket.Server({server: httpServer});
-    wss.on('connection', function(WS){
+    wss.on('connection', function (WS) {
         //console.log("connection made", WS.upgradeReq.connection.remoteAddress + " : " + WS.upgradeReq.connection.remotePort);
         //WS.send("Welcome ");
-        WS.on("message", function(message){
+        WS.on("message", function (message) {
             WS.send("test");
-            console.log('message: '+ message);
+            console.log('message: ' + message);
         });
-        WS.on('close', function(){
+        WS.on('close', function () {
             console.log('Stopped');
         })
     });

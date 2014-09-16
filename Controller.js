@@ -22,7 +22,6 @@ var constructor = function(){
     this._GET = {}; // get params
     this.remoteIP = "";
     this.remotePort = "";
-
 }
 /**
  * Called when the method is finished with all its callbacks or whatever it has to do.
