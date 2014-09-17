@@ -124,3 +124,4 @@ module.exports.HTTPServerFunction = function(){
         this.requestedURL.pathArray = this.requestedURL.pathname.split('/').trim();
     }.bind(new constructor());
 }
+

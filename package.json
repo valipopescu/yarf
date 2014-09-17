@@ -2,7 +2,9 @@
     "name": "yarf",
     "version": "0.0.1",
     "dependencies": {
-        "ws": ">=0.4.32"
+        "ws": ">=0.4.32",
+        "mongodb": ">=1.4",
+        "mysql": ">=0"
     }
 
 }
