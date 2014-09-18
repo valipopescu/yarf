@@ -48,6 +48,28 @@ nodeNative['path'] = require('path');
 var constructor = function(){
     this.controllerName = "";
     this.controllerPath = "";
+    var actionName = "";
+
+    Object.defineProperty(this, "actionName", {
+        value: actionName,
+        get: function(){
+            if(this.controllerName == "" || this.controllerPath == ""){
+                return "";
+            }
+            if(actionName == ""){
+                if(this.requestedURL.pathArray.isEmpty()){
+                    actionName = "index";
+                }else{
+                    actionName = this.requestedURL.pathArray.shift();
+                }
+            }
+            return actionName;
+        },
+        writeable: false,
+        enumerable: true
+    });
+
+    this.actionMethod = "";
     this.requestedURL = {};
 };
 
@@ -106,6 +128,7 @@ constructor.prototype.loadController = function(){
     return false;
 }
 
+
 /**
  * creates a new server function.
  * @returns {function(this:constructor)}
@@ -115,13 +138,22 @@ module.exports.HTTPServerFunction = function(){
         console.log('Serving request for url: ', req.url, 'from ', req.connection.remoteAddress, req.connection.remotePort);
         if (application.acceptedMethods.indexOf(req.method) == -1) { // simply refuse unaccepted methods.
             res.statusCode = 501;
+            res.end();
             return;
         }
+        this.actionMethod = req.method.toLowerCase();
         if(this.servePhysicalFiles(req, res)){
             return;
         }
         this.requestedURL = nodeNative.url.parse(req.url, true);
         this.requestedURL.pathArray = this.requestedURL.pathname.split('/').trim();
+        if(!this.loadController()){
+            res.statusCode = 501;
+            res.end();
+            console.log("Couldn't load controller for the " + req.url + "request");
+            return;
+        }
+        this.requestedURL.pathArray = this.requestedURL.pathname.replace(this.controllerPath, "").split("/").trim();
     }.bind(new constructor());
 }
 
