@@ -264,6 +264,26 @@ constructor.prototype.parseRequest = function(req,res){
     var multiPartParse = false;
     switch(req.headers['content-type']){
         case 'application/json':
+            var requestData = '';
+            req.on('data', function(data){
+                requestData += data;
+            })
+            req.on('end', function(){
+                var payload = undefined;
+                try {
+                    payload = JSON.parse(requestData);
+                }catch(e){
+                    payload = requestData
+                }finally{
+                    Object.defineProperty(this.controllerInstance, '_PAYLOAD', {
+                        enumerable: true,
+                        configurable: false,
+                        writeable: false,
+                        value: payload
+                    });
+                    this.runAction();
+                }
+            }.bind(this))
             break;
         case 'application/x-www-form-urlencoded':
         case 'multipart/form-data':
@@ -306,6 +326,18 @@ constructor.prototype.serveAction = function(req,res){
             configurable: false,
             writeable: false,
             value: this.requestedURL.query
+        });
+        Object.defineProperty(this.controllerInstance, '_FILES', {
+            enumerable: true,
+            configurable: false,
+            writeable: false,
+            value: {}
+        });
+        Object.defineProperty(this.controllerInstance, '_POST', {
+            enumerable: true,
+            configurable: false,
+            writeable: false,
+            value: {}
         });
         return this.parseRequest(req,res);
     }else{
