@@ -8,7 +8,9 @@ nodeNative['http'] = require('http');
 nodeNative['url'] = require('url');
 nodeNative['fs'] = require('fs');
 nodeNative['path'] = require('path');
-
+nodeNative['os'] = require('os');
+var externalLibs = {};
+externalLibs['busboy'] = require('busboy');
 /**
  * Application Object (holds statics)
  * @type {{}}
@@ -74,7 +76,7 @@ var constructor = function(){
         writeable: false,
         enumerable: true
     });
-
+    this.controllerInstance = null;
     this.actionMethod = "";
     this.requestedURL = {};
 };
@@ -214,27 +216,98 @@ constructor.prototype.createEndFunction = function(req,res){
     }
     return true;
 }
-constructor.prototype.serveAction = function(){
+
+constructor.prototype.multipartParse = function(req,res){
     "use strict";
-    var controllerMethod = this.actionMethod + this.actionName;
-    console.log(controllerMethod);
-    if(typeof application.controllers[this.controllerName].prototype[controllerMethod] == 'function'){
-        var controllerInstance = new application.controllers[this.controllerName]();
-        if(typeof controllerInstance != 'object' || controllerInstance == null){
+    /**
+     * @TODO: have a flag on the action so that the parsing can be done with progress function (or somethign similar).
+     * @TODO: The progress function can be used to push over websocket the progress of the upload (or something along that line)
+     */
+    var busboy = new externalLibs['busboy']({ headers: req.headers });
+    var actions = 1;
+    busboy.on('file', function(fieldname, file, filename, encoding, mimetype) {
+        fieldname = unescape(fieldname.replace(/\+/g, ' '));
+        ++actions;
+        var tmpFileName = nodeNative.path.join( nodeNative.os.tmpdir() , 'yarfTmpFile_' + (new Date()).getTime().toString(16) +Math.round(Math.random() * 1e15).toString(16));
+        this.controllerInstance._FILES[fieldname] = {
+            fileName: filename,
+            encoding: encoding,
+            mimetype: mimetype,
+            tmpfName: tmpFileName
+        }
+        file.pipe(nodeNative['fs'].createWriteStream(tmpFileName)).on('unpipe',function(){
+            if(--actions == 0){
+                this.runAction();
+            }
+        }.bind(this));
+    }.bind(this));
+    busboy.on('field', function(fieldname, val, fieldnameTruncated, valTruncated) {
+        this.controllerInstance._POST[unescape(fieldname.replace(/\+/g, ' '))] = unescape(val.replace(/\+/g, ' '));
+    }.bind(this));
+    busboy.on('partsLimit', function(){
+        throw new Error('Busboy parts limit reached');
+    })
+    busboy.on('filesLimit', function(){
+        throw new Error('Busboy parts limit reached');
+    })
+    busboy.on('fieldsLimit', function(){
+        throw new Error('Busboy parts limit reached');
+    })
+    busboy.on('finish', function() {
+        --actions; // processing is likely to end before the files are finished writing ... basically because only one thread is used
+    });
+    return req.pipe(busboy);
+}
+
+constructor.prototype.parseRequest = function(req,res){
+    "use strict";
+    var multiPartParse = false;
+    switch(req.headers['content-type']){
+        case 'application/json':
+            break;
+        case 'application/x-www-form-urlencoded':
+        case 'multipart/form-data':
+            multiPartParse = true;
+            break;
+        default:
+            if(req.headers['content-type'].indexOf('multipart/form-data') != -1){
+                multiPartParse = true;
+            }else{
+                // just put the contents on the payload as is.
+                this.controllerInstance['payload'] = "";
+                req.on('data',function(data){
+                    this.controllerInstance['payload'] += data;
+                })
+                return true;
+            }
+            break;
+    }
+    if(multiPartParse == true){
+        this.multipartParse(req,res);
+    }
+    return true;
+}
+constructor.prototype.runAction = function(){
+    "use strict";
+
+    //this.controllerInstance[this.actionMethod + this.actionName]();
+    console.log(this.controllerInstance);
+}
+constructor.prototype.serveAction = function(req,res){
+    "use strict";
+    if(typeof application.controllers[this.controllerName].prototype[this.actionMethod + this.actionName] == 'function'){
+        this.controllerInstance = new application.controllers[this.controllerName]();
+        if(typeof this.controllerInstance != 'object' || this.controllerInstance == null){
             return false;
         }
-//        console.log(this.requestedURL);
         // inside the instance start defining properties:
-        Object.defineProperty(controllerInstance, '_GET', {
+        Object.defineProperty(this.controllerInstance, '_GET', {
             enumerable: true,
             configurable: false,
             writeable: false,
             value: this.requestedURL.query
         });
-        
-        controllerInstance[controllerMethod]();
-        console.log(controllerInstance);
-        return true;
+        return this.parseRequest(req,res);
     }else{
         return false;
     }
@@ -280,7 +353,7 @@ module.exports.HTTPServerFunction = function(pathToApplication){
             if (!__this.serveAction(req, res)) {
                 res.statusCode = 500;
                 res.end();
-                console.log("couldn't serve the action")
+                console.log("couldn't create an instance for the controller")
             }
         }catch(e){
             res.statusCode = 500;

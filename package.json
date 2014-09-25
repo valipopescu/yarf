@@ -4,7 +4,8 @@
     "dependencies": {
         "ws": ">=0.4.32",
         "mongodb": ">=1.4",
-        "mysql": ">=0"
+        "mysql": ">=0",
+        "busboy":">=0.2.9"
     }
 
 }

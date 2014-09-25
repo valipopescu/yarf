@@ -18,13 +18,13 @@ var constructor = function(){
      */
     this.requestHeaders = {};
     this.responseCode = 200; // by default?
-    /**
+    this._FILES = {};
     this.urlParams = [];
     this._POST = {}; // FORM kind of posts
     this._GET = {}; // get params
+    this.payload = null; // could be object
     this.remoteIP = "";
     this.remotePort = "";
-     */
 }
 /**
  * Called when the method is finished with all its callbacks or whatever it has to do.
