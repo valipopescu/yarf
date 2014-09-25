@@ -339,6 +339,14 @@ constructor.prototype.serveAction = function(req,res){
             writeable: false,
             value: {}
         });
+        // TODO : Give the controllers an option to yield to subcontrollers, eventually ability to add request Params and stuff
+        // this option will get to use up the rest of the urlParams after the controller has taken all it needs.
+        Object.defineProperty(this.controllerInstance, '_URLPARAMS', {
+            enumerable: true,
+            configurable: false,
+            writeable: false,
+            value: this.requestedURL.pathArray
+        });
         return this.parseRequest(req,res);
     }else{
         return false;
