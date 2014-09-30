@@ -356,6 +356,12 @@ constructor.prototype.serveAction = function(req,res){
 }
 
 /**
+ * Router class for reuse in websockets.
+ * @type {constructor}
+ */
+module.exports.routerClass = constructor;
+
+/**
  * creates a new server function.
  * @returns {function(this:constructor)}
  */

@@ -5,7 +5,10 @@ require('./utils/stringUpperCase.js');
 require('./utils/objectIsEmpty.js');
 var nodeNative = {};
 nodeNative['http'] = require('http');
+var externalLibs = {};
+externalLibs['ws'] = require('ws');
 var server = require('./Router.js');
+var wsRouter = require('./WSRouter.js');
 process.die = function(message){
     "use strict";
     console.log(message);
@@ -32,9 +35,12 @@ exports.start = function (portNumber, pathToApplication, sslCfg) {
     } else {
         httpServer = nodeNative.http.createServer({key: sslCfg.key, cert: sslCfg.cert}, server.HTTPServerFunction(pathToApplication));
     }
+    var wss = new externalLibs['ws'].Server({server: httpServer});
+    wsRouter
     pathToApp = pathToApplication;
     httpServer.listen(portNumber, "127.0.0.1");
     console.log('Server running at http://127.0.0.1:' + portNumber + '/');
 }
 
 exports.Controller = require("./Controller.js");
+exports.Websocket = require('.Websocket.js');

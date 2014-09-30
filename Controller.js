@@ -17,13 +17,50 @@ var constructor = function(){
      * @type {number}
      */
     this.requestHeaders = {};
+    /**
+     * Response code to be sent with the reply
+     * @type {number}
+     */
     this.responseCode = 200; // by default?
+    /**
+     * Files sent with the request
+     * @type {{}}
+     * @protected
+     */
     this._FILES = {};
+    /**
+     * URL Parameters sent with the request. Contain all url parameters past the chosen action.
+     * @type {Array}
+     * @protected
+     */
     this._URLPARAMS = [];
+    /**
+     * POST params (if the request was sent with a form)
+     * @type {{}}
+     * @protected
+     */
     this._POST = {}; // FORM kind of posts
+    /**
+     * GET Params (url query)
+     * @type {{}}
+     * @protected
+     */
     this._GET = {}; // get params
+    /**
+     * Actual payload of the request. It will be populated with either string or Object
+     * @type {string || object}
+     */
     this.payload = null; // could be object
+    /**
+     * Ip of the remote (where the request came from)
+     * @todo take the X-Requested-For into consideration
+     * @type {string}
+     */
     this.remoteIP = "";
+    /**
+     * Port of the remote (where the request came from)
+     * @type {string}
+     */
     this.remotePort = "";
 }
 /**
