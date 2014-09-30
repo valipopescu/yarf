@@ -207,6 +207,8 @@ constructor.prototype.createEndFunction = function(req,res){
             case '*/*':
                 if (typeof this.response == "object") {
                     // test whether a view can be found, load it and pass everything in...
+                    // first get the script tags that have runOn ...
+
                 }
             default :
                 if (typeof this.response == "string" && !this.response.isEmpty())
