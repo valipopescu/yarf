@@ -35,12 +35,10 @@ exports.start = function (portNumber, pathToApplication, sslCfg) {
     } else {
         httpServer = nodeNative.http.createServer({key: sslCfg.key, cert: sslCfg.cert}, server.HTTPServerFunction(pathToApplication));
     }
-    var wss = new externalLibs['ws'].Server({server: httpServer});
-    wsRouter
     pathToApp = pathToApplication;
     httpServer.listen(portNumber, "127.0.0.1");
     console.log('Server running at http://127.0.0.1:' + portNumber + '/');
 }
 
 exports.Controller = require("./Controller.js");
-exports.Websocket = require('.Websocket.js');
+exports.Websocket = require('./Websocket.js');

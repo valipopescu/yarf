@@ -1,4 +1,3 @@
-
 /**
  * Native Node modules are loaded here (kind of namespace)
  * @type {{}}
@@ -50,23 +49,23 @@ application['controllers'] = {};
 /**
  * Base Class for HTTP Server Fucntion. Will be used as base class for the WS(S) as well.
  */
-var constructor = function(){
+var constructor = function () {
     this.controllerName = "";
     this.controllerPath = "";
     var actionName = "";
 
     Object.defineProperty(this, "actionName", {
-        get: function(){
-            if(this.controllerName == "" || this.controllerPath == ""){
+        get: function () {
+            if (this.controllerName == "" || this.controllerPath == "") {
                 return "";
             }
-            if(actionName == ""){
-                if(arguments.callee.caller !== constructor.prototype.loadController){ // don't run it outside loadController first time.
+            if (actionName == "") {
+                if (arguments.callee.caller !== constructor.prototype.loadController) { // don't run it outside loadController first time.
                     return "";
                 }
-                if(this.requestedURL.pathArray.isEmpty()){
+                if (this.requestedURL.pathArray.isEmpty()) {
                     actionName = "index";
-                }else{
+                } else {
                     actionName = this.requestedURL.pathArray.shift();
                 }
             }
@@ -87,7 +86,7 @@ var constructor = function(){
  * @param res
  * @returns {boolean}
  */
-constructor.prototype.servePhysicalFiles = function(req, res){ // gets them as params so that the methods can be reused.
+constructor.prototype.servePhysicalFiles = function (req, res) { // gets them as params so that the methods can be reused.
     if (nodeNative.fs.existsSync(application['pathToApp'] + '/public' + req.url) &&
         nodeNative.fs.statSync(application['pathToApp'] + '/public' + req.url).isFile()) { // serve physical file
         var fileExtension = req.url.substr((req.url.lastIndexOf(".")));
@@ -101,7 +100,7 @@ constructor.prototype.servePhysicalFiles = function(req, res){ // gets them as p
     return false;
 }
 
-constructor.prototype.loadController = function(){
+constructor.prototype.loadController = function () {
     if (this.requestedURL.pathArray.isEmpty()) { // index controller...
         this.controllerPath = "index";
         this.controllerName = "index";
@@ -126,7 +125,7 @@ constructor.prototype.loadController = function(){
                     if (typeof(application.controllers[this.controllerName]) == "undefined") {
                         console.log("Loading ... ", this.controllerName);
                         application.controllers[this.controllerName] = require(controllerDiskPath);
-                        if(typeof application.controllers[this.controllerName] != 'function'){
+                        if (typeof application.controllers[this.controllerName] != 'function') {
                             // the loaded controller is not a constructor.
                             return false;
                         }
@@ -134,7 +133,7 @@ constructor.prototype.loadController = function(){
                     }// else
                     // regardless of whether a controller was loaded or not, the pathArray should now contain only the bit after the controller
                     this.requestedURL.pathArray = this.requestedURL.pathname.replace(this.controllerPath, "").split("/").trim();
-                    console.log('Serving Controller: ' + this.controllerName + " with action: "+ this.actionMethod + this.actionName);
+                    console.log('Serving Controller: ' + this.controllerName + " with action: " + this.actionMethod + this.actionName);
                     var actionName = this.actionName; // only to trigger the property.
                     return true;// loaded now or before, the controller should be loaded at this point.
                 }// else keep going
@@ -152,11 +151,11 @@ constructor.prototype.loadController = function(){
  * @param res
  * @returns {boolean}
  */
-constructor.prototype.serveOptions = function(req, res){
+constructor.prototype.serveOptions = function (req, res) {
     "use strict";
     // TODO add swagger library Controller on which all the swagger docblock parsing is done.
     if (req.method == "OPTIONS") {
-        if(this.controllerName.isEmpty() || this.controllerPath.isEmpty()){
+        if (this.controllerName.isEmpty() || this.controllerPath.isEmpty()) {
             console.log("serve Options called without a controller being loaded. Server error.");
             res.statusCode = 500; // no matter this got here it's an internal server error.
             return true;
@@ -185,41 +184,44 @@ constructor.prototype.serveOptions = function(req, res){
     }
     return false; // wasn't options
 }
-constructor.prototype.createEndFunction = function(req,res){
+constructor.prototype.createEndFunction = function (req, res) {
     "use strict";
     var serverInstance = this;
-    if(this.controllerName.isEmpty()){
+    if (this.controllerName.isEmpty()) {
         return false;
     }
-    application.controllers[this.controllerName].prototype.end = function(){
-        res.statusCode = this.statusCode || res.statusCode;
-        if (typeof this.headers == "object" && !this.headers.isEmpty()) {
-            for (var headerName in this.headers) {
-                res.setHeader(headerName, this.headers[headerName]);
-            }
-        }
-        switch (req.headers['accept']) {
-            case 'application/json':
-                if (typeof this.response == "object" && !this.response.isEmpty())
-                    res.write(JSON.stringify(this.response));
-                break;
-            case 'text/html':
-            case '*/*':
-                if (typeof this.response == "object") {
-                    // test whether a view can be found, load it and pass everything in...
-                    // first get the script tags that have runOn ...
-
+    Object.defineProperty(this.controllerInstance, 'end', {
+        value: function () {
+            res.statusCode = this.statusCode || res.statusCode;
+            if (typeof this.headers == "object" && !this.headers.isEmpty()) {
+                for (var headerName in this.headers) {
+                    res.setHeader(headerName, this.headers[headerName]);
                 }
-            default :
-                if (typeof this.response == "string" && !this.response.isEmpty())
+            }
+            switch (req.headers['accept']) {
+                case 'application/json':
+                    if (typeof this.response == "object" && !this.response.isEmpty()) {
+                        console.log('json: ', JSON.stringify(this.response));
+                        res.write(JSON.stringify(this.response));
+                    }
+                    break;
+                case 'text/html':
+                case '*/*':
+                    if (typeof this.response == "object") {
+                        // test whether a view can be found, load it and pass everything in...
+                        // first get the script tags that have runOn ...
+                    }
+                default :
+                    //if (typeof this.response == "string" && !this.response.isEmpty())
                     res.write(this.response.toString());
-        }
-        res.end();
-    }
+            }
+            res.end();
+        }.bind(this.controllerInstance)
+    });
     return true;
 }
 
-constructor.prototype.multipartParse = function(req,res){
+constructor.prototype.multipartParse = function (req, res) {
     "use strict";
     /**
      * @TODO: have a flag on the action so that the parsing can be done with progress function (or somethign similar).
@@ -227,56 +229,56 @@ constructor.prototype.multipartParse = function(req,res){
      */
     var busboy = new externalLibs['busboy']({ headers: req.headers });
     var actions = 1;
-    busboy.on('file', function(fieldname, file, filename, encoding, mimetype) {
+    busboy.on('file', function (fieldname, file, filename, encoding, mimetype) {
         fieldname = unescape(fieldname.replace(/\+/g, ' '));
         ++actions;
-        var tmpFileName = nodeNative.path.join( nodeNative.os.tmpdir() , 'yarfTmpFile_' + (new Date()).getTime().toString(16) +Math.round(Math.random() * 1e15).toString(16));
+        var tmpFileName = nodeNative.path.join(nodeNative.os.tmpdir(), 'yarfTmpFile_' + (new Date()).getTime().toString(16) + Math.round(Math.random() * 1e15).toString(16));
         this.controllerInstance._FILES[fieldname] = {
             fileName: filename,
             encoding: encoding,
             mimetype: mimetype,
             tmpfName: tmpFileName
         }
-        file.pipe(nodeNative['fs'].createWriteStream(tmpFileName)).on('unpipe',function(){
-            if(--actions == 0){
+        file.pipe(nodeNative['fs'].createWriteStream(tmpFileName)).on('unpipe', function () {
+            if (--actions == 0) {
                 this.runAction();
             }
         }.bind(this));
     }.bind(this));
-    busboy.on('field', function(fieldname, val, fieldnameTruncated, valTruncated) {
+    busboy.on('field', function (fieldname, val, fieldnameTruncated, valTruncated) {
         this.controllerInstance._POST[unescape(fieldname.replace(/\+/g, ' '))] = unescape(val.replace(/\+/g, ' '));
     }.bind(this));
-    busboy.on('partsLimit', function(){
+    busboy.on('partsLimit', function () {
         throw new Error('Busboy parts limit reached');
     })
-    busboy.on('filesLimit', function(){
+    busboy.on('filesLimit', function () {
         throw new Error('Busboy parts limit reached');
     })
-    busboy.on('fieldsLimit', function(){
+    busboy.on('fieldsLimit', function () {
         throw new Error('Busboy parts limit reached');
     })
-    busboy.on('finish', function() {
+    busboy.on('finish', function () {
         --actions; // processing is likely to end before the files are finished writing ... basically because only one thread is used
     });
     return req.pipe(busboy);
 }
 
-constructor.prototype.parseRequest = function(req,res){
+constructor.prototype.parseRequest = function (req, res) {
     "use strict";
     var multiPartParse = false;
-    switch(req.headers['content-type']){
+    switch (req.headers['content-type']) {
         case 'application/json':
             var requestData = '';
-            req.on('data', function(data){
+            req.on('data', function (data) {
                 requestData += data;
             })
-            req.on('end', function(){
+            req.on('end', function () {
                 var payload = undefined;
                 try {
                     payload = JSON.parse(requestData);
-                }catch(e){
+                } catch (e) {
                     payload = requestData
-                }finally{
+                } finally {
                     Object.defineProperty(this.controllerInstance, '_PAYLOAD', {
                         enumerable: true,
                         configurable: false,
@@ -292,34 +294,35 @@ constructor.prototype.parseRequest = function(req,res){
             multiPartParse = true;
             break;
         default:
-            if(req.headers['content-type'].indexOf('multipart/form-data') != -1){
+            if (req.headers['content-type'].indexOf('multipart/form-data') != -1) {
                 multiPartParse = true;
-            }else{
+            } else {
                 // just put the contents on the payload as is.
                 this.controllerInstance['payload'] = "";
-                req.on('data',function(data){
+                req.on('data', function (data) {
                     this.controllerInstance['payload'] += data;
                 })
                 return true;
             }
             break;
     }
-    if(multiPartParse == true){
-        this.multipartParse(req,res);
+    if (multiPartParse == true) {
+        this.multipartParse(req, res);
     }
     return true;
 }
-constructor.prototype.runAction = function(){
+constructor.prototype.runAction = function () {
     "use strict";
-
-    //this.controllerInstance[this.actionMethod + this.actionName]();
-    console.log(this.controllerInstance);
+    this.controllerInstance[this.actionMethod + this.actionName]();
 }
-constructor.prototype.serveAction = function(req,res){
+constructor.prototype.serveAction = function (req, res) {
     "use strict";
-    if(typeof application.controllers[this.controllerName].prototype[this.actionMethod + this.actionName] == 'function'){
+    if (typeof application.controllers[this.controllerName].prototype[this.actionMethod + this.actionName] == 'function') {
         this.controllerInstance = new application.controllers[this.controllerName]();
-        if(typeof this.controllerInstance != 'object' || this.controllerInstance == null){
+        if(!this.createEndFunction(req, res)){
+            return false;
+        }
+        if (typeof this.controllerInstance != 'object' || this.controllerInstance == null) {
             return false;
         }
         // inside the instance start defining properties:
@@ -349,8 +352,8 @@ constructor.prototype.serveAction = function(req,res){
             writeable: false,
             value: this.requestedURL.pathArray
         });
-        return this.parseRequest(req,res);
-    }else{
+        return this.parseRequest(req, res);
+    } else {
         return false;
     }
 }
@@ -365,10 +368,10 @@ module.exports.routerClass = constructor;
  * creates a new server function.
  * @returns {function(this:constructor)}
  */
-module.exports.HTTPServerFunction = function(pathToApplication){
+module.exports.HTTPServerFunction = function (pathToApplication) {
     application['pathToApp'] = pathToApplication;
 
-    return function(req,res){
+    return function (req, res) {
         try {
             var __this = new constructor();
             console.log('Serving request for url: ', req.url, 'from ', req.connection.remoteAddress, req.connection.remotePort);
@@ -392,18 +395,12 @@ module.exports.HTTPServerFunction = function(pathToApplication){
             if (__this.serveOptions(req, res)) {// served alread
                 return;
             }
-            if (!__this.createEndFunction(req, res)) {
-                res.statusCode = 500;
-                res.end();
-                console.log("couldn't create the end function for the " + req.url + " url");
-                return;
-            }
             if (!__this.serveAction(req, res)) {
                 res.statusCode = 500;
                 res.end();
                 console.log("couldn't create an instance for the controller")
             }
-        }catch(e){
+        } catch (e) {
             res.statusCode = 500;
             res.end();
             console.log("Uncaught exception", e);
