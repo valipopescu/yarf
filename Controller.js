@@ -71,6 +71,12 @@ constructor.prototype.end = function(){
 
 }
 
+constructor.prototype.spec = {
+    'a base one':{
+        someBaseValue: 100
+    }
+};
+
 module.exports = constructor;
 
 

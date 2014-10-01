@@ -321,6 +321,7 @@ constructor.prototype.parseRequest = function (req, res) {
 }
 constructor.prototype.runAction = function () {
     "use strict";
+    console.log(this.controllerInstance.spec);
     this.controllerInstance[this.actionMethod + this.actionName]();
     return true;
 }
