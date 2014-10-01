@@ -134,7 +134,7 @@ constructor.prototype.loadController = function () {
                     // regardless of whether a controller was loaded or not, the pathArray should now contain only the bit after the controller
                     this.requestedURL.pathArray = this.requestedURL.pathname.replace(this.controllerPath, "").split("/").trim();
                     console.log('Serving Controller: ' + this.controllerName + " with action: " + this.actionMethod + this.actionName);
-                    var actionName = this.actionName; // only to trigger the property.
+                    //var actionName = this.actionName; // only to trigger the property.
                     return true;// loaded now or before, the controller should be loaded at this point.
                 }// else keep going
             } else {
@@ -179,43 +179,39 @@ constructor.prototype.serveOptions = function (req, res) {
             }
         }
         res.setHeader("Allow", controllerAcceptedMethods.join(', '));
-        res.end();
+        console.log('ending request'); res.end();
         return true;
     }
     return false; // wasn't options
 }
 constructor.prototype.createEndFunction = function (req, res) {
     "use strict";
-    var serverInstance = this;
-    if (this.controllerName.isEmpty()) {
+    if(this.controllerInstance == null){
         return false;
     }
     Object.defineProperty(this.controllerInstance, 'end', {
         value: function () {
-            res.statusCode = this.statusCode || res.statusCode;
             if (typeof this.headers == "object" && !this.headers.isEmpty()) {
                 for (var headerName in this.headers) {
                     res.setHeader(headerName, this.headers[headerName]);
                 }
             }
+            res.statusCode = this.statusCode || res.statusCode;
             switch (req.headers['accept']) {
                 case 'application/json':
                     if (typeof this.response == "object" && !this.response.isEmpty()) {
-                        console.log('json: ', JSON.stringify(this.response));
+                        res.setHeader('Content-Type', 'application/json');
                         res.write(JSON.stringify(this.response));
+                        console.log('ending request'); res.end();
+                        return;
                     }
-                    break;
                 case 'text/html':
                 case '*/*':
-                    if (typeof this.response == "object") {
-                        // test whether a view can be found, load it and pass everything in...
-                        // first get the script tags that have runOn ...
-                    }
                 default :
                     //if (typeof this.response == "string" && !this.response.isEmpty())
                     res.write(this.response.toString());
             }
-            res.end();
+            console.log('ending request'); res.end();
         }.bind(this.controllerInstance)
     });
     return true;
@@ -258,14 +254,20 @@ constructor.prototype.multipartParse = function (req, res) {
         throw new Error('Busboy parts limit reached');
     })
     busboy.on('finish', function () {
-        --actions; // processing is likely to end before the files are finished writing ... basically because only one thread is used
-    });
+        if (--actions == 0) {
+            this.runAction();
+        }
+    }.bind(this));
     return req.pipe(busboy);
 }
 
 constructor.prototype.parseRequest = function (req, res) {
     "use strict";
     var multiPartParse = false;
+    if(typeof(req.headers['content-type']) == 'undefined'){
+        // might be a get request
+        return this.runAction();
+    }
     switch (req.headers['content-type']) {
         case 'application/json':
             var requestData = '';
@@ -287,42 +289,51 @@ constructor.prototype.parseRequest = function (req, res) {
                     });
                     this.runAction();
                 }
-            }.bind(this))
-            break;
+            }.bind(this));
+            return true;
         case 'application/x-www-form-urlencoded':
         case 'multipart/form-data':
             multiPartParse = true;
             break;
         default:
-            if (req.headers['content-type'].indexOf('multipart/form-data') != -1) {
+            if (typeof req.headers['content-type'] != 'undefined' && req.headers['content-type'].indexOf('multipart/form-data') != -1) {
                 multiPartParse = true;
             } else {
                 // just put the contents on the payload as is.
                 this.controllerInstance['payload'] = "";
                 req.on('data', function (data) {
                     this.controllerInstance['payload'] += data;
-                })
+                }.bind(this));
+                req.on('end', function(){
+                    this.runAction();
+                }.bind(this))
                 return true;
             }
             break;
     }
     if (multiPartParse == true) {
         this.multipartParse(req, res);
+    }else{
+        console.log('how the fuck did it get here?!');
+        this.runAction();
     }
     return true;
 }
 constructor.prototype.runAction = function () {
     "use strict";
     this.controllerInstance[this.actionMethod + this.actionName]();
+    return true;
 }
 constructor.prototype.serveAction = function (req, res) {
     "use strict";
     if (typeof application.controllers[this.controllerName].prototype[this.actionMethod + this.actionName] == 'function') {
         this.controllerInstance = new application.controllers[this.controllerName]();
         if(!this.createEndFunction(req, res)){
+            console.log('returning false');
             return false;
         }
         if (typeof this.controllerInstance != 'object' || this.controllerInstance == null) {
+            console.log('returning false');
             return false;
         }
         // inside the instance start defining properties:
@@ -377,7 +388,7 @@ module.exports.HTTPServerFunction = function (pathToApplication) {
             console.log('Serving request for url: ', req.url, 'from ', req.connection.remoteAddress, req.connection.remotePort);
             if (application.acceptedMethods.indexOf(req.method) == -1) { // simply refuse unaccepted methods.
                 res.statusCode = 501;
-                res.end();
+                console.log('ending request'); res.end();
                 return;
             }
             __this.actionMethod = req.method.toLowerCase();
@@ -388,7 +399,7 @@ module.exports.HTTPServerFunction = function (pathToApplication) {
             __this.requestedURL.pathArray = __this.requestedURL.pathname.split('/').trim();
             if (!__this.loadController()) {
                 res.statusCode = 500;
-                res.end();
+                console.log('ending request'); res.end();
                 console.log("Couldn't load controller for the " + req.url + " request");
                 return;
             }
@@ -397,17 +408,15 @@ module.exports.HTTPServerFunction = function (pathToApplication) {
             }
             if (!__this.serveAction(req, res)) {
                 res.statusCode = 500;
-                res.end();
+                console.log('ending request'); res.end();
                 console.log("couldn't create an instance for the controller")
             }
         } catch (e) {
             res.statusCode = 500;
-            res.end();
-            console.log("Uncaught exception", e);
+            console.log('ending request'); res.end();
+            console.log("Uncaught exception", e, e.stack);
         }
-
-        res.end();
-
+        // don't end the request now.
     }
 }
 
