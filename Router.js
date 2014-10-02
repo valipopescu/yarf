@@ -321,7 +321,6 @@ constructor.prototype.parseRequest = function (req, res) {
 }
 constructor.prototype.runAction = function () {
     "use strict";
-    console.log(this.controllerInstance.spec);
     this.controllerInstance[this.actionMethod + this.actionName]();
     return true;
 }
@@ -380,9 +379,19 @@ module.exports.routerClass = constructor;
  * creates a new server function.
  * @returns {function(this:constructor)}
  */
-module.exports.HTTPServerFunction = function (pathToApplication) {
+module.exports.HTTPServerFunction = function (pathToApplication, options) {
     application['pathToApp'] = pathToApplication;
-
+    application['options'] = options;
+    if(typeof application['options']['mongo'] == 'object' && typeof application.options.mongo.url == 'string'){
+        var mongoDriver = require('mongodb');
+        mongoDriver.connect(application.options.mongo.url,function(err,db){
+            "use strict";
+            if(err) throw err; // fatal ?!
+            application['mongoConn'] = db;
+            var baseController = require('./Controller.js');
+            baseController.prototype.db = application['mongoConn'];
+        });
+    }
     return function (req, res) {
         try {
             var __this = new constructor();
