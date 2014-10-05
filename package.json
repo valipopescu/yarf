@@ -3,9 +3,9 @@
     "version": "0.0.1",
     "dependencies": {
         "ws": ">=0.4.32",
+        "busboy":">=0.2.9",
+        "cookie": "",
         "mongodb": ">=1.4",
-        "mysql": ">=0",
-        "busboy":">=0.2.9"
+        "mysql": ">=0"
     }
-
 }

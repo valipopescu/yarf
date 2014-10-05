@@ -10,7 +10,6 @@ externalLibs['ws'] = require('ws');
 var server = require('./Router.js');
 var wsRouter = require('./WSRouter.js');
 process.die = function(message){
-    "use strict";
     console.log(message);
     process.exit();
 }
