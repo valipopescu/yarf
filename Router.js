@@ -200,7 +200,8 @@ constructor.prototype.createEndFunction = function (req, res) {
         value: function () {
             if (typeof this.headers == "object" && !this.headers.isEmpty()) {
                 for (var headerName in this.headers) {
-                    res.setHeader(headerName, this.headers[headerName]);
+                    if(headerName.match(/set-cookie/i) == null) // IGNORE any cookies set manually through headers.
+                        res.setHeader(headerName, this.headers[headerName]);
                 }
             }
             res.statusCode = this.statusCode || res.statusCode;
@@ -483,7 +484,10 @@ module.exports.HTTPServerFunction = function (pathToApplication, options) {
         application.options.session = {};
     }
     if(typeof application.options.session.sessVarName != "string"){
-        application.options.session.sessVarName = 'zsi';
+        application.options.session.sessVarName = 'yjs';
+    }
+    if(typeof application.options.session.collName != "string"){
+        application.options.session.collName = '__y_sessions';
     }
     if (typeof application['options']['mongo'] == 'object' && typeof application.options.mongo.url == 'string') {
         canProcess = false;
@@ -493,7 +497,7 @@ module.exports.HTTPServerFunction = function (pathToApplication, options) {
             application['mongoConn'] = db;
             var baseController = require('./Controller.js');
             baseController.prototype.db = application['mongoConn']; // adds to ALL controllers
-            application.sessionCollection = baseController.prototype.db.collection('sessions');
+            application.sessionCollection = baseController.prototype.db.collection(application.options.session.collName);
             application.sessionCollection.ensureIndex({
                 lastAccessed: 1
             }, {

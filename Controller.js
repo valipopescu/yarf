@@ -4,17 +4,17 @@
 var constructor = function(){
     /**
      * Object for response. Add variables here or set to a string
-     * @type {{}}
+     * @type {mixed | ANY } Data Transfer Object preferably
      */
-    this.response = {};
+    this.response = null;
     /**
      * Add / Replace headers to your hearts content
      * @type {{}}
      */
     this.headers = {};
     /**
-     * HTTP Status code sent to the requester
-     * @type {number}
+     * Incoming Request Headers
+     * @type {{}}
      */
     this.requestHeaders = {};
     /**
@@ -70,12 +70,12 @@ var constructor = function(){
 constructor.prototype.end = function(){
 
 }
-
-constructor.prototype.spec = {
-    'a base one':{
-        someBaseValue: 100
-    }
-};
+//
+//constructor.prototype.spec = {
+//    'a base one':{
+//        someBaseValue: 100
+//    }
+//};
 
 module.exports = constructor;
 
