@@ -2,9 +2,9 @@
     "name": "yarf",
     "version": "0.0.1",
     "dependencies": {
-        "ws": ">=0.4.32",
-        "busboy":">=0.2.9",
-        "cookie": ">0",
-        "mongodb": ">=1.4"
+        "ws": "^0.4.32",
+        "busboy":"^0.2.9",
+        "cookie": "^0.1.2",
+        "mongodb": "^1.4"
     }
 }

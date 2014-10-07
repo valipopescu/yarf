@@ -6,7 +6,7 @@ var constructor = function(){
      * Object for response. Add variables here or set to a string
      * @type {mixed | ANY } Data Transfer Object preferably
      */
-    this.response = null;
+    this.response = {};
     /**
      * Add / Replace headers to your hearts content
      * @type {{}}

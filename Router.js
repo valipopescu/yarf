@@ -82,7 +82,7 @@ var constructor = function () {
     this.session = {};
     this.sessionCookie = null;
     this.incomingCookies = {};// incoming
-    this.preparedCookies = {}; // outgoing
+    this.preparedCookies = []; // outgoing
 };
 
 /**
@@ -198,34 +198,56 @@ constructor.prototype.createEndFunction = function (req, res) {
     }
     Object.defineProperty(this.controllerInstance, 'end', {
         value: function () {
-            if (typeof this.controllerInstance.headers == "object" && !this.controllerInstance.headers.isEmpty()) {
-                for (var headerName in this.controllerInstance.headers) {
-                    if (headerName.match(/set-cookie/i) == null) // IGNORE any cookies set manually through headers.
-                        res.setHeader(headerName, this.controllerInstance.headers[headerName]);
-                    else{
-                        console.log('Attempted to set cookie: ' + headerName + ' to ' + this.controllerInstance.headers[headerName] + ' in controller' + );
-                    }
+            application.sessionCollection.findAndModify({
+                _id: new externalLibs['mongoDriver'].ObjectID(this.sessionCookie)
+            },{
+                $natural: 1
+            },{
+                $set: {
+                    lastAccessed: new Date(),
+                    data: this.controllerInstance._SESSION
                 }
-            }
-            var cookieArray = [];
-            res.statusCode = this.controllerInstance.statusCode || res.statusCode;
-            switch (req.headers['accept']) {
-                case 'application/json':
-                    if (typeof this.controllerInstance.response == "object" && !this.controllerInstance.response.isEmpty()) {
-                        res.setHeader('Content-Type', 'application/json');
-                        res.write(JSON.stringify(this.controllerInstance.response));
-                        console.log('ending request');
-                        res.end();
-                        return;
+            },{
+                new: true
+            }, function (err, doc) {
+                if (err) {
+                    res.statusCode = 500;
+                    console.log('ending request');
+                    res.end();
+                    console.log("couldn't update session in mongo", err);
+                } else {
+                    if (typeof this.controllerInstance.headers == "object" && !this.controllerInstance.headers.isEmpty()) {
+                        for (var headerName in this.controllerInstance.headers) {
+                            if (headerName.match(/set-cookie/i) == null) // IGNORE any cookies set manually through headers.
+                                res.setHeader(headerName, this.controllerInstance.headers[headerName]);
+                            else{
+                                console.log('Attempted to set cookie: ' + headerName + ' to ' + this.controllerInstance.headers[headerName] + ' in controller' + this.controllerName );
+                            }
+                        }
                     }
-                case 'text/html':
-                case '*/*':
-                default :
-                    //if (typeof this.response == "string" && !this.response.isEmpty())
-                    res.write(this.controllerInstance.response.toString());
-            }
-            console.log('ending request');
-            res.end();
+                    res.setHeader('Set-Cookie', this.preparedCookies);
+
+                    res.statusCode = this.controllerInstance.statusCode || res.statusCode;
+                    switch (req.headers['accept']) {
+                        case 'application/json':
+                            if (typeof this.controllerInstance.response == "object" && !this.controllerInstance.response.isEmpty()) {
+                                res.setHeader('Content-Type', 'application/json');
+                                res.write(JSON.stringify(this.controllerInstance.response));
+                                console.log('ending request');
+                                res.end();
+                                return;
+                            }
+                        case 'text/html':
+                        case '*/*':
+                        default :
+                            //if (typeof this.response == "string" && !this.response.isEmpty())
+                            res.write(this.controllerInstance.response.toString());
+                    }
+                    console.log('ending request');
+                    res.end();
+                }
+            }.bind(this));
+            // now go through the session data and save it to the db
         }.bind(this)
     });
     return true;
@@ -391,10 +413,10 @@ constructor.prototype.serveAction = function (req, res) {
                 enumerable: false,
                 configurable: false,
                 writeable: false,
-                value: function(cookieName, cookieValue){
+                value: function(cookieName, cookieValue, options){
                     if(cookieName == application.options.session.sessVarName) // IGNORE setting the session cookie to something else.
                         return;
-                    this.preparedCookies[cookieName] = cookieValue;
+                    this.preparedCookies.push(require('cookie').serialize(application.options.session.sessVarName, docs[0]._id));
                 }.bind(this)
             }
         });
@@ -422,57 +444,37 @@ constructor.prototype.sessionInit = function (req, res) {
         this.sessionCookie = this.incomingCookies[application.options.session.sessVarName];
         delete this.incomingCookies[application.options.session.sessVarName];
     }
-    if (this.incomingCookies.isEmpty() || typeof this.sessionCookie != 'string') {
-        application.sessionCollection.insert({
-            lastAccessed: new Date(),
-            data: {}
-        }, function (err, docs) {
-            if (err) {
-                res.statusCode = 500;
+    application.sessionCollection.findAndModify({
+        _id: new externalLibs['mongoDriver'].ObjectID(this.sessionCookie)
+    },{
+        $natural: 1
+    },
+    {
+        $set: {
+            lastAccessed: new Date()
+        }
+    },{
+        new: true,
+        upsert: true
+    }, function (err, doc) {
+        if (err) {
+            res.statusCode = 500;
+            console.log('ending request');
+            res.end();
+            console.log("couldn't create session in mongo", err);
+        } else {
+            this.sessionCookie = doc._id;
+            for (var sessionVarName in doc.data) {
+                this.session[sessionVarName] = doc.data[sessionVarName];
+            }
+            if (!this.serveAction(req, res)) {
+                res.statusCode = 501;
                 console.log('ending request');
                 res.end();
-                console.log("couldn't create session in mongo", err);
-            } else {
-                // set the cookie with the session id
-                this.preparedCookies[application.options.session.sessVarName] = docs[0].id;
-                if (!this.serveAction(req, res)) {
-                    res.statusCode = 501;
-                    console.log('ending request');
-                    res.end();
-                    console.log("couldn't serve the action")
-                }
+                console.log("couldn't serve the action")
             }
-        }.bind(this))
-    } else {
-        application.sessionCollection.findAndModify({
-            query: {
-                _id: new ObjectId(this.sessionCookie)
-            },
-            new: true,
-            update: {
-                $set: {
-                    lastAccessed: new Date()
-                }
-            }
-        }, function (err, doc) {
-            if (err) {
-                res.statusCode = 500;
-                console.log('ending request');
-                res.end();
-                console.log("couldn't create session in mongo", err);
-            } else {
-                for (var sessionVarName in doc.data) {
-                    this.session[sessionVarName] = doc.data[sessionVarName];
-                }
-                if (!this.serveAction(req, res)) {
-                    res.statusCode = 501;
-                    console.log('ending request');
-                    res.end();
-                    console.log("couldn't serve the action")
-                }
-            }
-        }.bind(this));
-    }
+        }
+    }.bind(this));
 }
 constructor.prototype.process = function (req, res) {
     if (application.acceptedMethods.indexOf(req.method) == -1) { // simply refuse unaccepted methods.
@@ -526,8 +528,8 @@ module.exports.HTTPServerFunction = function (pathToApplication, options) {
     }
     if (typeof application['options']['mongo'] == 'object' && typeof application.options.mongo.url == 'string') {
         canProcess = false;
-        var mongoDriver = require('mongodb');
-        mongoDriver.connect(application.options.mongo.url, function (err, db) {
+        externalLibs['mongoDriver'] = require('mongodb');
+        externalLibs['mongoDriver'].connect(application.options.mongo.url, function (err, db) {
             if (err) throw err; // fatal ?!
             application['mongoConn'] = db;
             var baseController = require('./Controller.js');
