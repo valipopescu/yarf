@@ -41,6 +41,12 @@ var constructor = function(){
      */
     this._POST = {}; // FORM kind of posts
     /**
+     * Incoming Cookies
+     * @type {{}}
+     * @private
+     */
+    this._COOKIE = {};
+    /**
      * GET Params (url query)
      * @type {{}}
      * @protected

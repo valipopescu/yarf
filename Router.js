@@ -198,18 +198,22 @@ constructor.prototype.createEndFunction = function (req, res) {
     }
     Object.defineProperty(this.controllerInstance, 'end', {
         value: function () {
-            if (typeof this.headers == "object" && !this.headers.isEmpty()) {
-                for (var headerName in this.headers) {
-                    if(headerName.match(/set-cookie/i) == null) // IGNORE any cookies set manually through headers.
-                        res.setHeader(headerName, this.headers[headerName]);
+            if (typeof this.controllerInstance.headers == "object" && !this.controllerInstance.headers.isEmpty()) {
+                for (var headerName in this.controllerInstance.headers) {
+                    if (headerName.match(/set-cookie/i) == null) // IGNORE any cookies set manually through headers.
+                        res.setHeader(headerName, this.controllerInstance.headers[headerName]);
+                    else{
+                        console.log('Attempted to set cookie: ' + headerName + ' to ' + this.controllerInstance.headers[headerName] + ' in controller' + );
+                    }
                 }
             }
-            res.statusCode = this.statusCode || res.statusCode;
+            var cookieArray = [];
+            res.statusCode = this.controllerInstance.statusCode || res.statusCode;
             switch (req.headers['accept']) {
                 case 'application/json':
-                    if (typeof this.response == "object" && !this.response.isEmpty()) {
+                    if (typeof this.controllerInstance.response == "object" && !this.controllerInstance.response.isEmpty()) {
                         res.setHeader('Content-Type', 'application/json');
-                        res.write(JSON.stringify(this.response));
+                        res.write(JSON.stringify(this.controllerInstance.response));
                         console.log('ending request');
                         res.end();
                         return;
@@ -218,11 +222,11 @@ constructor.prototype.createEndFunction = function (req, res) {
                 case '*/*':
                 default :
                     //if (typeof this.response == "string" && !this.response.isEmpty())
-                    res.write(this.response.toString());
+                    res.write(this.controllerInstance.response.toString());
             }
             console.log('ending request');
             res.end();
-        }.bind(this.controllerInstance)
+        }.bind(this)
     });
     return true;
 }
@@ -333,6 +337,7 @@ constructor.prototype.runAction = function () {
     this.controllerInstance[this.actionMethod + this.actionName]();
     return true;
 }
+
 constructor.prototype.serveAction = function (req, res) {
     if (typeof application.controllers[this.controllerName].prototype[this.actionMethod + this.actionName] == 'function') {
         this.controllerInstance = new application.controllers[this.controllerName]();
@@ -345,33 +350,57 @@ constructor.prototype.serveAction = function (req, res) {
             return false;
         }
         // inside the instance start defining properties:
-        Object.defineProperty(this.controllerInstance, '_GET', {
-            enumerable: true,
-            configurable: false,
-            writeable: false,
-            value: this.requestedURL.query
-        });
-        Object.defineProperty(this.controllerInstance, '_FILES', {
-            enumerable: true,
-            configurable: false,
-            writeable: false,
-            value: {}
-        });
-        Object.defineProperty(this.controllerInstance, '_POST', {
-            enumerable: true,
-            configurable: false,
-            writeable: false,
-            value: {}
+        Object.defineProperties(this.controllerInstance, {
+            _GET: {
+                enumerable: true,
+                configurable: false,
+                writeable: false,
+                value: this.requestedURL.query
+            },
+            _FILES: {
+                enumerable: true,
+                configurable: false,
+                writeable: false,
+                value: {}
+            },
+            _POST: {
+                enumerable: true,
+                configurable: false,
+                writeable: false,
+                value: {}
+            },
+            _URLPARAMS: {
+                enumerable: true,
+                configurable: false,
+                writeable: false,
+                value: this.requestedURL.pathArray
+            },
+            _SESSION: {
+                enumerable: true,
+                configurable: false,
+                writeable: false, // means that it can't be set to null or anything funny.
+                value: this.session
+            },
+            _COOKIE: {
+                enumerable: true,
+                configurable: false,
+                writeable: false,
+                value: this.incomingCookies
+            },
+            setCookie: {
+                enumerable: false,
+                configurable: false,
+                writeable: false,
+                value: function(cookieName, cookieValue){
+                    if(cookieName == application.options.session.sessVarName) // IGNORE setting the session cookie to something else.
+                        return;
+                    this.preparedCookies[cookieName] = cookieValue;
+                }.bind(this)
+            }
         });
 
         // TODO : Give the controllers an option to yield to subcontrollers, eventually ability to add request Params and stuff
         // this option will get to use up the rest of the urlParams after the controller has taken all it needs.
-        Object.defineProperty(this.controllerInstance, '_URLPARAMS', {
-            enumerable: true,
-            configurable: false,
-            writeable: false,
-            value: this.requestedURL.pathArray
-        });
         return this.parseRequest(req, res);
     } else {
         console.log("Controller " + this.controllerName + " does not contain a method: " + this.actionMethod + this.actionName + "")
@@ -390,13 +419,13 @@ constructor.prototype.sessionInit = function (req, res) {
     }
     if (typeof req.headers['cookie'] == 'string') {
         this.incomingCookies = externalLibs['cookie'].parse(req.headers.cookie);
-        this.sessionCookie = this.sessionCookie;
-        delete this.sessionCookie;
+        this.sessionCookie = this.incomingCookies[application.options.session.sessVarName];
+        delete this.incomingCookies[application.options.session.sessVarName];
     }
     if (this.incomingCookies.isEmpty() || typeof this.sessionCookie != 'string') {
         application.sessionCollection.insert({
             lastAccessed: new Date(),
-            data:{}
+            data: {}
         }, function (err, docs) {
             if (err) {
                 res.statusCode = 500;
@@ -406,7 +435,7 @@ constructor.prototype.sessionInit = function (req, res) {
             } else {
                 // set the cookie with the session id
                 this.preparedCookies[application.options.session.sessVarName] = docs[0].id;
-                if (!this.serveAction(req, res)) { // serve the action as is ... got no sessions! NO IN MEMORY SESSIONS! DO NOT !!! Not scalable ... bad
+                if (!this.serveAction(req, res)) {
                     res.statusCode = 501;
                     console.log('ending request');
                     res.end();
@@ -431,9 +460,15 @@ constructor.prototype.sessionInit = function (req, res) {
                 console.log('ending request');
                 res.end();
                 console.log("couldn't create session in mongo", err);
-            }else{
-                for(var sessionVarName in doc.data){
+            } else {
+                for (var sessionVarName in doc.data) {
                     this.session[sessionVarName] = doc.data[sessionVarName];
+                }
+                if (!this.serveAction(req, res)) {
+                    res.statusCode = 501;
+                    console.log('ending request');
+                    res.end();
+                    console.log("couldn't serve the action")
                 }
             }
         }.bind(this));
@@ -459,7 +494,7 @@ constructor.prototype.process = function (req, res) {
         console.log("Couldn't load controller for the " + req.url + " request");
         return;
     }
-    if (this.serveOptions(req, res)) {// served alread
+    if (this.serveOptions(req, res)) {// served already s
         return;
     }
     this.sessionInit(req, res);
@@ -480,13 +515,13 @@ module.exports.HTTPServerFunction = function (pathToApplication, options) {
     application['pathToApp'] = pathToApplication;
     application['options'] = options;
     var canProcess = true;
-    if(typeof application.options.session == 'undefined'){
+    if (typeof application.options.session == 'undefined') {
         application.options.session = {};
     }
-    if(typeof application.options.session.sessVarName != "string"){
+    if (typeof application.options.session.sessVarName != "string") {
         application.options.session.sessVarName = 'yjs';
     }
-    if(typeof application.options.session.collName != "string"){
+    if (typeof application.options.session.collName != "string") {
         application.options.session.collName = '__y_sessions';
     }
     if (typeof application['options']['mongo'] == 'object' && typeof application.options.mongo.url == 'string') {
@@ -502,14 +537,14 @@ module.exports.HTTPServerFunction = function (pathToApplication, options) {
                 lastAccessed: 1
             }, {
                 expireAfterSeconds: (typeof options['session'] == "object" && options.session != null && typeof options.session.expireAfterSeconds == "number") ? options.session.expireAfterSeconds : 7200 // 2 hours
-            }, function(){
+            }, function () {
                 canProcess = true;
             })
         });
     }
     return function (req, res) {
         try {
-            if(canProcess == false){
+            if (canProcess == false) {
                 throw new Error('Still initializing... can not process');
                 return;
             }
