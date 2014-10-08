@@ -416,7 +416,7 @@ constructor.prototype.serveAction = function (req, res) {
                 value: function(cookieName, cookieValue, options){
                     if(cookieName == application.options.session.sessVarName) // IGNORE setting the session cookie to something else.
                         return;
-                    this.preparedCookies.push(require('cookie').serialize(application.options.session.sessVarName, docs[0]._id));
+                    this.preparedCookies.push(externalLibs.cookie.serialize(cookieName, cookieValue));
                 }.bind(this)
             }
         });
@@ -437,10 +437,11 @@ constructor.prototype.sessionInit = function (req, res) {
             res.end();
             console.log("couldn't serve the action")
         }
+        console.log('serving without sessions');
         return; // regardless of whether an error was returned or not just return
     }
     if (typeof req.headers['cookie'] == 'string') {
-        this.incomingCookies = externalLibs['cookie'].parse(req.headers.cookie);
+        this.incomingCookies = externalLibs.cookie.parse(req.headers.cookie);
         this.sessionCookie = this.incomingCookies[application.options.session.sessVarName];
         delete this.incomingCookies[application.options.session.sessVarName];
     }
@@ -463,7 +464,10 @@ constructor.prototype.sessionInit = function (req, res) {
             res.end();
             console.log("couldn't create session in mongo", err);
         } else {
-            this.sessionCookie = doc._id;
+            if(this.sessionCookie == undefined){
+                this.preparedCookies.push(externalLibs.cookie.serialize(application.options.session.sessVarName, doc._id.toString()));
+            }
+            this.sessionCookie = doc._id.toString();
             for (var sessionVarName in doc.data) {
                 this.session[sessionVarName] = doc.data[sessionVarName];
             }
