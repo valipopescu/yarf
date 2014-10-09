@@ -230,13 +230,15 @@ constructor.prototype.createEndFunction = function (req, res) {
                     res.statusCode = this.controllerInstance.statusCode || res.statusCode;
                     switch (req.headers['accept']) {
                         case 'application/json':
-                            if (typeof this.controllerInstance.response == "object" && !this.controllerInstance.response.isEmpty()) {
-                                res.setHeader('Content-Type', 'application/json');
+                            //
+                            res.setHeader('Content-Type', 'application/json');
+                            if (typeof this.controllerInstance.response != "undefined") {
                                 res.write(JSON.stringify(this.controllerInstance.response));
-                                console.log('ending request');
-                                res.end();
-                                return;
                             }
+                            console.log('ending request');
+                            res.end();
+                            return;
+                            //}
                         case 'text/html':
                         case '*/*':
                         default :

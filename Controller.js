@@ -8,7 +8,7 @@ var constructor = function(){
      */
     this.response = {};
     /**
-     * Add / Replace headers to your hearts content
+     * Response headers
      * @type {{}}
      */
     this.headers = {};
@@ -47,6 +47,12 @@ var constructor = function(){
      */
     this._COOKIE = {};
     /**
+     *
+     * @type {{}}
+     * @private
+     */
+    this._SESSION = {};
+    /**
      * GET Params (url query)
      * @type {{}}
      * @protected
@@ -84,7 +90,3 @@ constructor.prototype.end = function(){
 //};
 
 module.exports = constructor;
-
-
-
-///  !(ip.dst == 10.0.0.0/8) && !(ip.dst == 255.255.255.255) && !(eth.dst == ff:ff:ff:ff:ff:ff) && !(ip.dst == 224.0.0.252)
