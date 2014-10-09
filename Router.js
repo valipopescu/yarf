@@ -375,6 +375,18 @@ constructor.prototype.serveAction = function (req, res) {
         }
         // inside the instance start defining properties:
         Object.defineProperties(this.controllerInstance, {
+            remoteIp:{
+                enumerable: true,
+                configurable: false,
+                writeable: false,
+                value: req.headers['X-Forwarded-For'] || req.connection.remoteAddress
+            },
+            remotePort:{
+                enumerable: true,
+                configurable: false,
+                writeable: false,
+                value: req.connection.remotePort
+            },
             _GET: {
                 enumerable: true,
                 configurable: false,
@@ -568,3 +580,6 @@ module.exports.HTTPServerFunction = function (pathToApplication, options) {
     }
 }
 
+module.exports.getMongoConn = function(){
+    return application['mongoConn'];
+}
