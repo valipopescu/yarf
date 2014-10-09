@@ -43,4 +43,6 @@ exports.start = function (portNumber, pathToApplication, options) {
 }
 
 exports.Controller = require("./Controller.js");
-exports.Websocket = require('./Websocket.js');
+//exports.Websocket = require('./Websocket.js');
+exports.Mapper = require("./Mapper.js");
+exports.Model = require("./Model.js"); // for now there's not much functionality in models

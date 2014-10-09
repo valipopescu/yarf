@@ -106,6 +106,7 @@ constructor.prototype.servePhysicalFiles = function (req, res) { // gets them as
 }
 
 constructor.prototype.loadController = function () {
+    //TODO: controllers as files
     if (this.requestedURL.pathArray.isEmpty()) { // index controller...
         this.controllerPath = "index";
         this.controllerName = "index";
