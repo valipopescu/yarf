@@ -424,7 +424,15 @@ constructor.prototype.serveAction = function (req, res) {
                 writeable: false,
                 value: this.incomingCookies
             },
-            setCookie: {
+            loadMapper: {
+                enumerable: true,
+                configurable: false,
+                writeable: false,
+                value: function(mapperName){
+                    // try first to see if it exists
+                    
+                }.bind(this.controllerInstance)
+            },setCookie: {
                 enumerable: false,
                 configurable: false,
                 writeable: false,

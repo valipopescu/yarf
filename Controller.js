@@ -62,7 +62,7 @@ var constructor = function(){
      * Actual payload of the request. It will be populated with either string or Object
      * @type {string || object}
      */
-    this.payload = null; // could be object
+    this._PAYLOAD = null; // could be object
     /**
      * Ip of the remote (where the request came from)
      * @todo take the X-Requested-For into consideration
@@ -82,6 +82,8 @@ var constructor = function(){
 constructor.prototype.end = function(){
 
 }
+
+
 //
 //constructor.prototype.spec = {
 //    'a base one':{
