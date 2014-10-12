@@ -423,15 +423,6 @@ constructor.prototype.serveAction = function (req, res) {
                 configurable: false,
                 writeable: false,
                 value: this.incomingCookies
-            },
-            loadMapper: {
-                enumerable: true,
-                configurable: false,
-                writeable: false,
-                value: function(mapperName){
-                    // try first to see if it exists
-                    
-                }.bind(this.controllerInstance)
             },setCookie: {
                 enumerable: false,
                 configurable: false,
@@ -561,6 +552,7 @@ module.exports.HTTPServerFunction = function (pathToApplication, options) {
             application['mongoConn'] = db;
             var baseController = require('./Controller.js');
             baseController.prototype.db = application['mongoConn']; // adds to ALL controllers
+            baseController.prototype.db.ObjectID = externalLibs['mongoDriver'].ObjectID;
             application.sessionCollection = baseController.prototype.db.collection(application.options.session.collName);
             application.sessionCollection.ensureIndex({
                 lastAccessed: 1
