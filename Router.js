@@ -1,4 +1,4 @@
-//'use strict';
+'use strict';
 /**
  * Native Node modules are loaded here (kind of namespace)
  * @type {{}}
@@ -61,21 +61,16 @@ var constructor = function () {
     var actionName = "";
 
     Object.defineProperty(this, "actionName", {
-        get: function () {
+        get: function self () {
             if (this.controllerName === "" || this.controllerPath === "") {
                 return "";
             }
             if (actionName === "") {
-                /* jshint ignore:start */
-                if (arguments.callee.caller !== constructor.prototype.loadController) { // don't run it outside loadController first time.
-                    return "";
-                }
                 if (this.requestedURL.pathArray.isEmpty()) {
                     actionName = "index";
                 } else {
                     actionName = this.requestedURL.pathArray.shift();
                 }
-                /* jshint ignore:end */
             }
             actionName = actionName.ucFirst();
             return actionName;
@@ -231,7 +226,6 @@ constructor.prototype.createEndFunction = function (req, res) {
     }
     Object.defineProperty(this.controllerInstance, 'end', {
         value: function () {
-            var resper = require('./utils/responder');
             if (application.sessionCollection) {
                 application.sessionCollection.findAndModify({
                     _id: new externalLibs.mongoDriver.ObjectID(this.sessionCookie)
@@ -331,13 +325,13 @@ constructor.prototype.parseRequest = function (req, res) {
             var requestData = '';
             req.on('data', function (data) {
                 requestData += data;
-            })
+            });
             req.on('end', function () {
-                var payload = undefined;
+                var payload;
                 try {
                     payload = JSON.parse(requestData);
                 } catch (e) {
-                    payload = requestData
+                    payload = requestData;
                 } finally {
                     Object.defineProperty(this.controllerInstance, '_PAYLOAD', {
                         enumerable: true,
@@ -358,29 +352,29 @@ constructor.prototype.parseRequest = function (req, res) {
                 multiPartParse = true;
             } else {
                 // just put the contents on the payload as is.
-                this.controllerInstance['payload'] = "";
+                this.controllerInstance.payload = "";
                 req.on('data', function (data) {
-                    this.controllerInstance['payload'] += data;
+                    this.controllerInstance.payload += data;
                 }.bind(this));
                 req.on('end', function () {
                     this.runAction();
-                }.bind(this))
+                }.bind(this));
                 return true;
             }
             break;
     }
-    if (multiPartParse == true) {
+    if (multiPartParse === true) {
         this.multipartParse(req, res);
     } else {
         console.log('how the fuck did it get here?!');
         this.runAction();
     }
     return true;
-}
+};
 constructor.prototype.runAction = function () {
     this.controllerInstance[this.actionMethod + this.actionName]();
     return true;
-}
+};
 
 constructor.prototype.serveAction = function (req, res) {
     if (typeof application.controllers[this.controllerName].prototype[this.actionMethod + this.actionName] == 'function') {
@@ -389,7 +383,7 @@ constructor.prototype.serveAction = function (req, res) {
             console.log('returning false');
             return false;
         }
-        if (typeof this.controllerInstance != 'object' || this.controllerInstance == null) {
+        if (typeof this.controllerInstance !== 'object' || this.controllerInstance === null) {
             console.log('returning false');
             return false;
         }
@@ -459,28 +453,28 @@ constructor.prototype.serveAction = function (req, res) {
         // this option will get to use up the rest of the urlParams after the controller has taken all it needs.
         return this.parseRequest(req, res);
     } else {
-        console.log("Controller " + this.controllerName + " does not contain a method: " + this.actionMethod + this.actionName + "")
+        console.log("Controller " + this.controllerName + " does not contain a method: " + this.actionMethod + this.actionName + "");
         return false;
     }
-}
+};
 constructor.prototype.sessionInit = function (req, res) {
-    if (typeof application['sessionCollection'] == 'undefined') {
+    if (typeof application.sessionCollection === 'undefined') {
         if (!this.serveAction(req, res)) { // serve the action as is ... got no sessions! NO IN MEMORY SESSIONS! DO NOT !!! Not scalable ... bad
             res.statusCode = 501;
             console.log('ending request');
             res.end();
-            console.log("couldn't serve the action")
+            console.log("couldn't serve the action");
         }
         console.log('serving without sessions');
         return; // regardless of whether an error was returned or not just return
     }
-    if (typeof req.headers['cookie'] == 'string') {
+    if (typeof req.headers.cookie === 'string') {
         this.incomingCookies = externalLibs.cookie.parse(req.headers.cookie);
         this.sessionCookie = this.incomingCookies[application.options.session.sessVarName];
         delete this.incomingCookies[application.options.session.sessVarName];
     }
     application.sessionCollection.findAndModify({
-        _id: new externalLibs['mongoDriver'].ObjectID(this.sessionCookie)
+        _id: new externalLibs.mongoDriver.ObjectID(this.sessionCookie)
     },{
         $natural: 1
     },
@@ -498,7 +492,7 @@ constructor.prototype.sessionInit = function (req, res) {
             res.end();
             console.log("couldn't create session in mongo", err);
         } else {
-            if(this.sessionCookie == undefined){
+            if(this.sessionCookie === undefined){
                 this.preparedCookies.push(externalLibs.cookie.serialize(application.options.session.sessVarName, doc._id.toString()));
             }
             this.sessionCookie = doc._id.toString();
@@ -509,11 +503,11 @@ constructor.prototype.sessionInit = function (req, res) {
                 res.statusCode = 501;
                 console.log('ending request');
                 res.end();
-                console.log("couldn't serve the action")
+                console.log("couldn't serve the action");
             }
         }
     }.bind(this));
-}
+};
 constructor.prototype.process = function (req, res) {
     if (application.acceptedMethods.indexOf(req.method) == -1) { // simply refuse unaccepted methods.
         res.statusCode = 501;
@@ -539,7 +533,7 @@ constructor.prototype.process = function (req, res) {
         return;
     }
     this.sessionInit(req, res);
-}
+};
 
 
 /**
@@ -553,8 +547,8 @@ module.exports.routerClass = constructor;
  * @returns {function(this:constructor)}
  */
 module.exports.HTTPServerFunction = function (pathToApplication, options) {
-    application['pathToApp'] = pathToApplication;
-    application['options'] = options;
+    application.pathToApp = pathToApplication;
+    application.options = options;
     var canProcess = true;
     if (typeof application.options.session == 'undefined') {
         application.options.session = {};
@@ -565,30 +559,29 @@ module.exports.HTTPServerFunction = function (pathToApplication, options) {
     if (typeof application.options.session.collName != "string") {
         application.options.session.collName = '__y_sessions';
     }
-    if (typeof application['options']['mongo'] == 'object' && typeof application.options.mongo.url == 'string') {
+    if (typeof application.options.mongo === 'object' && typeof application.options.mongo.url === 'string') {
         canProcess = false;
-        externalLibs['mongoDriver'] = require('mongodb');
-        externalLibs['mongoDriver'].connect(application.options.mongo.url, function (err, db) {
+        externalLibs.mongoDriver = require('mongodb');
+        externalLibs.mongoDriver.connect(application.options.mongo.url, function (err, db) {
             if (err) throw err; // fatal ?!
-            application['mongoConn'] = db;
+            application.mongoConn = db;
             var baseController = require('./Controller.js');
-            baseController.prototype.db = application['mongoConn']; // adds to ALL controllers
-            baseController.prototype.db.ObjectID = externalLibs['mongoDriver'].ObjectID;
+            baseController.prototype.db = application.mongoConn; // adds to ALL controllers
+            baseController.prototype.db.ObjectID = externalLibs.mongoDriver.ObjectID;
             application.sessionCollection = baseController.prototype.db.collection(application.options.session.collName);
             application.sessionCollection.ensureIndex({
                 lastAccessed: 1
             }, {
-                expireAfterSeconds: (typeof options['session'] == "object" && options.session != null && typeof options.session.expireAfterSeconds == "number") ? options.session.expireAfterSeconds : 7200 // 2 hours
+                expireAfterSeconds: (typeof options.session === "object" && options.session !== null && typeof options.session.expireAfterSeconds === "number") ? options.session.expireAfterSeconds : 7200 // 2 hours
             }, function () {
                 canProcess = true;
-            })
+            });
         });
     }
     return function (req, res) {
         try {
-            if (canProcess == false) {
+            if (canProcess === false) {
                 throw new Error('Still initializing... can not process');
-                return;
             }
             var requestProcessor = new constructor();
             console.log('Serving request for url: ', req.url, 'from ', req.connection.remoteAddress, req.connection.remotePort);
@@ -599,9 +592,9 @@ module.exports.HTTPServerFunction = function (pathToApplication, options) {
             res.end();
             console.log("Uncaught exception", e, e.stack);
         }
-    }
-}
+    };
+};
 
 module.exports.getMongoConn = function(){
-    return application['mongoConn'];
-}
+    return application.mongoConn;
+};
