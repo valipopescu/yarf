@@ -59,7 +59,6 @@ var constructor = function () {
     this.controllerName = "";
     this.controllerPath = "";
     var actionName = "";
-    this.responder = require('./utils/responder');
 
     Object.defineProperty(this, "actionName", {
         get: function () {
@@ -204,6 +203,27 @@ constructor.prototype.serveOptions = function (req, res) {
     }
     return false; // wasn't options
 };
+constructor.prototype.parseHeaderAndRespond = function(req, res) {
+    switch (req.headers.accept) {
+        case 'application/json':
+            res.setHeader('Content-Type', 'application/json');
+            if (typeof this.controllerInstance.response != "undefined") {
+                res.write(JSON.stringify(this.controllerInstance.response));
+            }
+            console.log('ending request');
+            res.end();
+            return;
+            //}
+        case 'text/html':
+        case '*/*':
+        default :
+            //if (typeof this.controllerInstance.response == "string" && !this.controllerInstance.response.isEmpty())
+            res.write(this.controllerInstance.response.toString());
+    }
+    console.log('ending request');
+    res.end();
+};
+
 constructor.prototype.createEndFunction = function (req, res) {
 
     if (this.controllerInstance === null) {
@@ -212,7 +232,6 @@ constructor.prototype.createEndFunction = function (req, res) {
     Object.defineProperty(this.controllerInstance, 'end', {
         value: function () {
             var resper = require('./utils/responder');
-            console.log('application', application.sessionCollection);
             if (application.sessionCollection) {
                 application.sessionCollection.findAndModify({
                     _id: new externalLibs.mongoDriver.ObjectID(this.sessionCookie)
@@ -244,37 +263,11 @@ constructor.prototype.createEndFunction = function (req, res) {
                         res.setHeader('Set-Cookie', this.preparedCookies);
 
                         res.statusCode = this.controllerInstance.statusCode || res.statusCode;
-                        switch (req.headers.accept) {
-                            case 'application/json':
-                                //
-                                res.setHeader('Content-Type', 'application/json');
-                                if (typeof this.controllerInstance.response != "undefined") {
-                                    res.write(JSON.stringify(this.controllerInstance.response));
-                                }
-                                console.log('ending request');
-                                res.end();
-                                return;
-                                //}
-                            case 'text/html':
-                            case '*/*':
-                            default :
-                            console.log('Serving HTML is Not implemented. Can not return any acceptable response');
-                            res.statusCode = 406;
-                            res.end();
-                            return;
-                            // this bit is not executed. come back to it later
-                            if (typeof this.response != "undefined")
-                                res.write(this.controllerInstance.response.toString());
-                        }
-                        console.log('ending request');
-                        res.end();
+                        this.responder(req, res, this.controllerInstance);
                     }
                 }.bind(this));
             } else {
-                // res.write(JSON.stringify(this.controllerInstance.response));
-                // console.log('response', this.controllerInstance.response);
-                // res.end();
-                this.responder(req, res, this.controllerInstance);
+                this.parseHeaderAndRespond(req, res);
             }
             // now go through the session data and save it to the db
         }.bind(this)
