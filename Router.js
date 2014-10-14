@@ -92,14 +92,17 @@ var constructor = function () {
  * @returns {boolean}
  */
 constructor.prototype.servePhysicalFiles = function (req, res) { // gets them as params so that the methods can be reused.
-    if (nodeNative.fs.existsSync(application['pathToApp'] + '/public' + req.url) &&
-        nodeNative.fs.statSync(application['pathToApp'] + '/public' + req.url).isFile()) { // serve physical file
+    var physicalPath = nodeNative.path.join(application['pathToApp'] , 'public' , this.requestedURL.pathname);
+    console.log("trying to serve physical path: ", physicalPath);
+    if (nodeNative.fs.existsSync(physicalPath) &&
+        nodeNative.fs.statSync(physicalPath).isFile()) { // serve physical file
         var fileExtension = req.url.substr((req.url.lastIndexOf(".")));
         if (typeof (application.mimeTypes[fileExtension]) == "string") {
             res.writeHead(200, {"Content-Type": application.mimeTypes[fileExtension]});
         }
-        var frs = nodeNative.fs.createReadStream(application['pathToApp'] + '/public' + req.url);
+        var frs = nodeNative.fs.createReadStream(physicalPath);
         frs.pipe(res);
+        //console.log('Piped physical file: ', application['pathToApp'] + '/public' + req.url);
         return true;
     }
     return false;
@@ -503,11 +506,12 @@ constructor.prototype.process = function (req, res) {
         res.end();
         return;
     }
-    this.actionMethod = req.method.toLowerCase();
+
+    this.requestedURL = nodeNative.url.parse(req.url, true);
     if (this.servePhysicalFiles(req, res)) {
         return;
     }
-    this.requestedURL = nodeNative.url.parse(req.url, true);
+    this.actionMethod = req.method.toLowerCase();
     this.requestedURL.pathArray = this.requestedURL.pathname.split('/').trim();
     if (!this.loadController()) {
         res.statusCode = 500;
