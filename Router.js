@@ -1,16 +1,20 @@
+//'use strict';
 /**
  * Native Node modules are loaded here (kind of namespace)
  * @type {{}}
  */
-var nodeNative = {};
-nodeNative['http'] = require('http');
-nodeNative['url'] = require('url');
-nodeNative['fs'] = require('fs');
-nodeNative['path'] = require('path');
-nodeNative['os'] = require('os');
-var externalLibs = {};
-externalLibs['busboy'] = require('busboy');
-externalLibs['cookie'] = require('cookie');
+var nodeNative = {
+    http: require('http'),
+    url: require('url'),
+    fs: require('fs'),
+    path: require('path'),
+    os: require('os')
+};
+
+var externalLibs = {
+    busboy: require('busboy'),
+    cookie: require('cookie')
+};
 /**
  * Application Object (holds statics)
  * @type {{}}
@@ -20,31 +24,32 @@ var application = {};
  * Static path to app.
  * @type {string}
  */
-application['pathToApp'] = "";
+application.pathToApp = "";
 /**
  * Accepted methods (static)
  * @type {string[]}
  */
-application['acceptedMethods'] = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'];
+application.acceptedMethods = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'];
 /**
  * Can the application server start?
  * @type {boolean}
  */
-application['canStart'] = true;
+application.canStart = true;
 /**
  * Mime Types
  * @type {string{string}}
  */
-application['mimeTypes'] = JSON.parse(nodeNative.fs.readFileSync(__dirname + "/mime.json", "utf8"));
-if (Object.isEmpty(application['mimeTypes'])) { // should not be able to start if there's no mime types preloaded.
+application.mimeTypes = JSON.parse(nodeNative.fs.readFileSync(__dirname + "/mime.json", "utf8"));
+
+if (Object.isEmpty(application.mimeTypes)) { // should not be able to start if there's no mime types preloaded.
     console.log("unable to load mime.json");
-    application['canStart'] = false;
+    application.canStart = false;
 }
 /**
  * Controllers
  * @type {{}}
  */
-application['controllers'] = {};
+application.controllers = {};
 
 
 /**
@@ -57,10 +62,11 @@ var constructor = function () {
 
     Object.defineProperty(this, "actionName", {
         get: function () {
-            if (this.controllerName == "" || this.controllerPath == "") {
+            if (this.controllerName === "" || this.controllerPath === "") {
                 return "";
             }
-            if (actionName == "") {
+            if (actionName === "") {
+                /* jshint ignore:start */
                 if (arguments.callee.caller !== constructor.prototype.loadController) { // don't run it outside loadController first time.
                     return "";
                 }
@@ -69,6 +75,7 @@ var constructor = function () {
                 } else {
                     actionName = this.requestedURL.pathArray.shift();
                 }
+                /* jshint ignore:end */
             }
             actionName = actionName.ucFirst();
             return actionName;
@@ -106,14 +113,14 @@ constructor.prototype.servePhysicalFiles = function (req, res) { // gets them as
         return true;
     }
     return false;
-}
+};
 
 constructor.prototype.loadController = function () {
     //TODO: controllers as files
     if (this.requestedURL.pathArray.isEmpty()) { // index controller...
         this.controllerPath = "index";
         this.controllerName = "index";
-        var controllerDiskPath = nodeNative.path.join(application['pathToApp'], "/Controllers/", this.controllerPath+'.js');
+        var controllerDiskPath = nodeNative.path.join(application.pathToApp, "/Controllers/", this.controllerPath+'.js');
         if (nodeNative.fs.existsSync(controllerDiskPath)) {
             if (typeof(application.controllers[this.controllerName]) == "undefined") {
                 console.log("Loading ... ", this.controllerName);
@@ -130,7 +137,7 @@ constructor.prototype.loadController = function () {
             this.controllerPath = this.controllerPath + "/" + this.requestedURL.pathArray[pathComponent];
             this.controllerName = this.requestedURL.pathArray[pathComponent];
             //console.log(this);
-            var controllerDiskPath = nodeNative.path.join(application['pathToApp'], "/Controllers/", this.controllerPath+'.js');
+            var controllerDiskPath = nodeNative.path.join(application.pathToApp, "/Controllers/", this.controllerPath+'.js');
             console.log(controllerDiskPath);
             if (nodeNative.fs.existsSync(controllerDiskPath)) {
                 if (nodeNative.fs.existsSync(controllerDiskPath)) {
@@ -155,7 +162,7 @@ constructor.prototype.loadController = function () {
         }
     }
     return false;
-}
+};
 /**
  * Serves the options requests. Always has status code 200 unless there's something wrong with the server when it returns 500
  * It will show ALL HTTP methods for the current requested controller and action in Allow header
@@ -179,9 +186,9 @@ constructor.prototype.serveOptions = function (req, res) {
                 continue;// ignore base Object methods. it may well be that there's a method in the controller called isEmpty...
                 // it won't be ignored (mainly because it can't be identical to the one in Object ... if it is then it's ignored)
             }
-            if (typeof application.controllers[this.controllerName].prototype[controllerMethodName] == "function" && controllerMethodName.match(methodRegexp) != null) {
+            if (typeof application.controllers[this.controllerName].prototype[controllerMethodName] == "function" && controllerMethodName.match(methodRegexp) !== null) {
                 var acceptedMethod = controllerMethodName.replace(methodRegexp, "").toUpperCase();
-                if (acceptedMethod == "") {
+                if (acceptedMethod === "") {
                     acceptedMethod = "GET";
                 }
                 if (application.acceptedMethods.indexOf(acceptedMethod) >= 0) {
@@ -195,16 +202,18 @@ constructor.prototype.serveOptions = function (req, res) {
         return true;
     }
     return false; // wasn't options
-}
+};
 constructor.prototype.createEndFunction = function (req, res) {
 
-    if (this.controllerInstance == null) {
+    if (this.controllerInstance === null) {
         return false;
     }
     Object.defineProperty(this.controllerInstance, 'end', {
         value: function () {
+            console.log('application', application.sessionCollection);
+            if (application.sessionCollection) {
             application.sessionCollection.findAndModify({
-                _id: new externalLibs['mongoDriver'].ObjectID(this.sessionCookie)
+                    _id: new externalLibs.mongoDriver.ObjectID(this.sessionCookie)
             },{
                 $natural: 1
             },{
@@ -223,7 +232,7 @@ constructor.prototype.createEndFunction = function (req, res) {
                 } else {
                     if (typeof this.controllerInstance.headers == "object" && !this.controllerInstance.headers.isEmpty()) {
                         for (var headerName in this.controllerInstance.headers) {
-                            if (headerName.match(/set-cookie/i) == null) // IGNORE any cookies set manually through headers.
+                                if (headerName.match(/set-cookie/i) === null) // IGNORE any cookies set manually through headers.
                                 res.setHeader(headerName, this.controllerInstance.headers[headerName]);
                             else{
                                 console.log('Attempted to set cookie: ' + headerName + ' to ' + this.controllerInstance.headers[headerName] + ' in controller' + this.controllerName );
@@ -233,7 +242,7 @@ constructor.prototype.createEndFunction = function (req, res) {
                     res.setHeader('Set-Cookie', this.preparedCookies);
 
                     res.statusCode = this.controllerInstance.statusCode || res.statusCode;
-                    switch (req.headers['accept']) {
+                        switch (req.headers.accept) {
                         case 'application/json':
                             //
                             res.setHeader('Content-Type', 'application/json');
@@ -253,17 +262,22 @@ constructor.prototype.createEndFunction = function (req, res) {
                             return;
                             // this bit is not executed. come back to it later
                             if (typeof this.response != "undefined")
-                                res.write(this.controllerInstance.response.toString());
+                            res.write(this.controllerInstance.response.toString());
                     }
                     console.log('ending request');
                     res.end();
                 }
             }.bind(this));
+            } else {
+                res.write(JSON.stringify(this.controllerInstance.response));
+                console.log('response', this.controllerInstance.response);
+                res.end();
+            }
             // now go through the session data and save it to the db
         }.bind(this)
     });
     return true;
-}
+};
 
 constructor.prototype.multipartParse = function (req, res) {
 
@@ -271,7 +285,7 @@ constructor.prototype.multipartParse = function (req, res) {
      * @TODO: have a flag on the action so that the parsing can be done with progress function (or somethign similar).
      * @TODO: The progress function can be used to push over websocket the progress of the upload (or something along that line)
      */
-    var busboy = new externalLibs['busboy']({ headers: req.headers });
+    var busboy = new externalLibs.busboy({ headers: req.headers });
     var actions = 1;
     busboy.on('file', function (fieldname, file, filename, encoding, mimetype) {
         fieldname = unescape(fieldname.replace(/\+/g, ' '));
@@ -282,9 +296,9 @@ constructor.prototype.multipartParse = function (req, res) {
             encoding: encoding,
             mimetype: mimetype,
             tmpfName: tmpFileName
-        }
-        file.pipe(nodeNative['fs'].createWriteStream(tmpFileName)).on('unpipe', function () {
-            if (--actions == 0) {
+        };
+        file.pipe(nodeNative.fs.createWriteStream(tmpFileName)).on('unpipe', function () {
+            if (--actions === 0) {
                 this.runAction();
             }
         }.bind(this));
@@ -294,20 +308,20 @@ constructor.prototype.multipartParse = function (req, res) {
     }.bind(this));
     busboy.on('partsLimit', function () {
         throw new Error('Busboy parts limit reached');
-    })
+    });
     busboy.on('filesLimit', function () {
         throw new Error('Busboy parts limit reached');
-    })
+    });
     busboy.on('fieldsLimit', function () {
         throw new Error('Busboy parts limit reached');
-    })
+    });
     busboy.on('finish', function () {
-        if (--actions == 0) {
+        if (--actions === 0) {
             this.runAction();
         }
     }.bind(this));
     return req.pipe(busboy);
-}
+};
 
 constructor.prototype.parseRequest = function (req, res) {
 
