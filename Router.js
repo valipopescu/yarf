@@ -424,7 +424,8 @@ constructor.prototype.serveAction = function (req, res) {
                 configurable: false,
                 writeable: false,
                 value: this.incomingCookies
-            },setCookie: {
+            },
+            setCookie: {
                 enumerable: false,
                 configurable: false,
                 writeable: false,
