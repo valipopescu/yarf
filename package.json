@@ -1,23 +1,40 @@
 {
-    "name": "yarf",
-    "description": "Yet Another Restful Framework, is what it says with the mention that it mimics YARF PHP (Porpoise).\n It brings all you know good about PHP into the world of Javascript without bringing any of the bad parts.\n VERY helpful if you want to port PHP applications to Node.js ",
-    "keywords" : [
-        "PHP", "YARF", "Porpoise", "MVC", "REST", "Lightweight", "Websockets", "WSS", "Controller", "Model", "Mapper", "Data Mapper", "DTO"
-    ],
-    "homepage": "https://github.com/thegeapy/yarf",
-    "author": "Valentin Popescu",
-    "bugs" : "https://github.com/thegeapy/yarf/issues",
-    "version": "0.0.1",
-    "license": "AGPL-1.0",
-    "files": ["./"],
-    "repository": {
-        "type": "git",
-        "url": "https://github.com/thegeapy/yarf.git"
-    },
-    "dependencies": {
-        "ws": "^0.4.32",
-        "busboy":"^0.2.9",
-        "cookie": "^0.1.2",
-        "mongodb": "^1.4"
-    }
+  "name": "yarf",
+  "description": "Yet Another Restful Framework, is what it says with the mention that it mimics YARF PHP (Porpoise).\n It brings all you know good about PHP into the world of Javascript without bringing any of the bad parts.\n VERY helpful if you want to port PHP applications to Node.js ",
+  "keywords": [
+    "PHP",
+    "YARF",
+    "Porpoise",
+    "MVC",
+    "REST",
+    "Lightweight",
+    "Websockets",
+    "WSS",
+    "Controller",
+    "Model",
+    "Mapper",
+    "Data Mapper",
+    "DTO"
+  ],
+  "homepage": "https://github.com/thegeapy/yarf",
+  "author": "Valentin Popescu",
+  "bugs": {
+    "url": "https://github.com/thegeapy/yarf/issues"
+  },
+  "version": "0.0.1",
+  "license": "AGPL-1.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/thegeapy/yarf.git"
+  },
+  "dependencies": {
+    "ws": "^0.4.32",
+    "busboy": "^0.2.9",
+    "cookie": "^0.1.2",
+    "mongodb": "^1.4"
+  },
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  }
 }
