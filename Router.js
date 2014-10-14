@@ -110,7 +110,7 @@ constructor.prototype.loadController = function () {
     if (this.requestedURL.pathArray.isEmpty()) { // index controller...
         this.controllerPath = "index";
         this.controllerName = "index";
-        var controllerDiskPath = nodeNative.path.join(application['pathToApp'], "/Modules/", this.controllerPath, 'controller.js');
+        var controllerDiskPath = nodeNative.path.join(application['pathToApp'], "/Controllers/", this.controllerPath+'.js');
         if (nodeNative.fs.existsSync(controllerDiskPath)) {
             if (typeof(application.controllers[this.controllerName]) == "undefined") {
                 console.log("Loading ... ", this.controllerName);
@@ -127,8 +127,9 @@ constructor.prototype.loadController = function () {
             this.controllerPath = this.controllerPath + "/" + this.requestedURL.pathArray[pathComponent];
             this.controllerName = this.requestedURL.pathArray[pathComponent];
             //console.log(this);
-            if (nodeNative.fs.existsSync(nodeNative.path.join(application['pathToApp'], "/Modules/", this.controllerPath))) {
-                var controllerDiskPath = nodeNative.path.join(application['pathToApp'], "/Modules/", this.controllerPath, 'controller.js');
+            var controllerDiskPath = nodeNative.path.join(application['pathToApp'], "/Controllers/", this.controllerPath+'.js');
+            console.log(controllerDiskPath);
+            if (nodeNative.fs.existsSync(controllerDiskPath)) {
                 if (nodeNative.fs.existsSync(controllerDiskPath)) {
                     if (typeof(application.controllers[this.controllerName]) == "undefined") {
                         console.log("Loading ... ", this.controllerName);
