@@ -1,18 +1,22 @@
+'use strict';
+
 require('./utils/consoleLog.js');
 require('./utils/extend.js');
 require('./utils/arrayTrim.js');
 require('./utils/stringUpperCase.js');
 require('./utils/objectIsEmpty.js');
-var nodeNative = {};
-nodeNative['http'] = require('http');
-var externalLibs = {};
-externalLibs['ws'] = require('ws');
+var nodeNative = {
+    http: require('http')
+};
+var externalLibs = {
+    ws: require('ws')
+};
 var server = require('./Router.js');
 var wsRouter = require('./WSRouter.js');
 process.die = function(message){
     console.log(message);
     process.exit();
-}
+};
 /**
  *
  * @param portNumber
@@ -24,23 +28,23 @@ exports.start = function (portNumber, pathToApplication, options) {
     if (typeof(portNumber) != "number") {
         return false;
     }
-    if (typeof pathToApplication == 'undefined' || isEmpty(pathToApplication)) {
+    if (typeof pathToApplication === 'undefined' || isEmpty(pathToApplication)) {
         console.log("invalid path to application:", pathToApplication);
         return false;
     }
-    if (typeof options['mongo'] == 'undefined'){
+    if (typeof options.mongo === 'undefined'){
         console.log('running without mongodb means no sessions');
     }
     var httpServer;
-    if (typeof options['sslCfg'] == "undefined" || typeof options.sslCfg['key'] == "undefined" || typeof options.sslCfg['cert'] == "undefined") {
+    if (typeof options.sslCfg === "undefined" || typeof options.sslCfg.key === "undefined" || typeof options.sslCfg.cert === "undefined") {
         httpServer = nodeNative.http.createServer(server.HTTPServerFunction(pathToApplication, options));
     } else {
-        httpServer = nodeNative.http.createServer({key: sslCfg.key, cert: sslCfg.cert}, server.HTTPServerFunction(pathToApplication, options));
+        httpServer = nodeNative.http.createServer({key: options.sslCfg.key, cert: options.sslCfg.cert}, server.HTTPServerFunction(pathToApplication, options));
     }
-    pathToApp = pathToApplication;
-    httpServer.listen(portNumber, "127.0.0.1");
+    var pathToApp = pathToApplication;
+    httpServer.listen(portNumber, "0.0.0.0");
     console.log('Server running at http://127.0.0.1:' + portNumber + '/');
-}
+};
 
 exports.Controller = require("./Controller.js");
 //exports.Websocket = require('./Websocket.js');
