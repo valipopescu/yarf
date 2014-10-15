@@ -247,8 +247,8 @@ constructor.prototype.createEndFunction = function (req, res) {
                         case 'text/html':
                         case '*/*':
                         default :
-                            console.log('Serving HTML is Not implemented');
-                            res.statusCode = 501;
+                            console.log('Serving HTML is Not implemented. Can not return any acceptable response');
+                            res.statusCode = 406;
                             res.end();
                             return;
                             // this bit is not executed. come back to it later
