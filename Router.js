@@ -1,16 +1,20 @@
+'use strict';
 /**
  * Native Node modules are loaded here (kind of namespace)
  * @type {{}}
  */
-var nodeNative = {};
-nodeNative['http'] = require('http');
-nodeNative['url'] = require('url');
-nodeNative['fs'] = require('fs');
-nodeNative['path'] = require('path');
-nodeNative['os'] = require('os');
-var externalLibs = {};
-externalLibs['busboy'] = require('busboy');
-externalLibs['cookie'] = require('cookie');
+var nodeNative = {
+    http: require('http'),
+    url: require('url'),
+    fs: require('fs'),
+    path: require('path'),
+    os: require('os')
+};
+
+var externalLibs = {
+    busboy: require('busboy'),
+    cookie: require('cookie')
+};
 /**
  * Application Object (holds statics)
  * @type {{}}
@@ -20,31 +24,32 @@ var application = {};
  * Static path to app.
  * @type {string}
  */
-application['pathToApp'] = "";
+application.pathToApp = "";
 /**
  * Accepted methods (static)
  * @type {string[]}
  */
-application['acceptedMethods'] = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'];
+application.acceptedMethods = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'];
 /**
  * Can the application server start?
  * @type {boolean}
  */
-application['canStart'] = true;
+application.canStart = true;
 /**
  * Mime Types
  * @type {string{string}}
  */
-application['mimeTypes'] = JSON.parse(nodeNative.fs.readFileSync(__dirname + "/mime.json", "utf8"));
-if (Object.isEmpty(application['mimeTypes'])) { // should not be able to start if there's no mime types preloaded.
+application.mimeTypes = JSON.parse(nodeNative.fs.readFileSync(__dirname + "/mime.json", "utf8"));
+
+if (Object.isEmpty(application.mimeTypes)) { // should not be able to start if there's no mime types preloaded.
     console.log("unable to load mime.json");
-    application['canStart'] = false;
+    application.canStart = false;
 }
 /**
  * Controllers
  * @type {{}}
  */
-application['controllers'] = {};
+application.controllers = {};
 
 
 /**
@@ -56,14 +61,11 @@ var constructor = function () {
     var actionName = "";
 
     Object.defineProperty(this, "actionName", {
-        get: function () {
-            if (this.controllerName == "" || this.controllerPath == "") {
+        get: function self () {
+            if (this.controllerName === "" || this.controllerPath === "") {
                 return "";
             }
-            if (actionName == "") {
-                if (arguments.callee.caller !== constructor.prototype.loadController) { // don't run it outside loadController first time.
-                    return "";
-                }
+            if (actionName === "") {
                 if (this.requestedURL.pathArray.isEmpty()) {
                     actionName = "index";
                 } else {
@@ -106,14 +108,14 @@ constructor.prototype.servePhysicalFiles = function (req, res) { // gets them as
         return true;
     }
     return false;
-}
+};
 
 constructor.prototype.loadController = function () {
     //TODO: controllers as files
     if (this.requestedURL.pathArray.isEmpty()) { // index controller...
         this.controllerPath = "index";
         this.controllerName = "index";
-        var controllerDiskPath = nodeNative.path.join(application['pathToApp'], "/Controllers/", this.controllerPath+'.js');
+        var controllerDiskPath = nodeNative.path.join(application.pathToApp, "/Controllers/", this.controllerPath+'.js');
         if (nodeNative.fs.existsSync(controllerDiskPath)) {
             if (typeof(application.controllers[this.controllerName]) == "undefined") {
                 console.log("Loading ... ", this.controllerName);
@@ -130,7 +132,7 @@ constructor.prototype.loadController = function () {
             this.controllerPath = this.controllerPath + "/" + this.requestedURL.pathArray[pathComponent];
             this.controllerName = this.requestedURL.pathArray[pathComponent];
             //console.log(this);
-            var controllerDiskPath = nodeNative.path.join(application['pathToApp'], "/Controllers/", this.controllerPath+'.js');
+            var controllerDiskPath = nodeNative.path.join(application.pathToApp, "/Controllers/", this.controllerPath+'.js');
             console.log(controllerDiskPath);
             if (nodeNative.fs.existsSync(controllerDiskPath)) {
                 if (nodeNative.fs.existsSync(controllerDiskPath)) {
@@ -155,7 +157,7 @@ constructor.prototype.loadController = function () {
         }
     }
     return false;
-}
+};
 /**
  * Serves the options requests. Always has status code 200 unless there's something wrong with the server when it returns 500
  * It will show ALL HTTP methods for the current requested controller and action in Allow header
@@ -179,9 +181,9 @@ constructor.prototype.serveOptions = function (req, res) {
                 continue;// ignore base Object methods. it may well be that there's a method in the controller called isEmpty...
                 // it won't be ignored (mainly because it can't be identical to the one in Object ... if it is then it's ignored)
             }
-            if (typeof application.controllers[this.controllerName].prototype[controllerMethodName] == "function" && controllerMethodName.match(methodRegexp) != null) {
+            if (typeof application.controllers[this.controllerName].prototype[controllerMethodName] == "function" && controllerMethodName.match(methodRegexp) !== null) {
                 var acceptedMethod = controllerMethodName.replace(methodRegexp, "").toUpperCase();
-                if (acceptedMethod == "") {
+                if (acceptedMethod === "") {
                     acceptedMethod = "GET";
                 }
                 if (application.acceptedMethods.indexOf(acceptedMethod) >= 0) {
@@ -195,75 +197,77 @@ constructor.prototype.serveOptions = function (req, res) {
         return true;
     }
     return false; // wasn't options
-}
+};
+constructor.prototype.parseHeaderAndRespond = function(req, res) {
+    switch (req.headers.accept) {
+        case 'application/json':
+            res.setHeader('Content-Type', 'application/json');
+            if (typeof this.controllerInstance.response != "undefined") {
+                res.write(JSON.stringify(this.controllerInstance.response));
+            }
+            console.log('ending request');
+            res.end();
+            return;
+            //}
+        case 'text/html':
+        case '*/*':
+        default :
+            //if (typeof this.controllerInstance.response == "string" && !this.controllerInstance.response.isEmpty())
+            res.write(this.controllerInstance.response.toString());
+    }
+    console.log('ending request');
+    res.end();
+};
+
 constructor.prototype.createEndFunction = function (req, res) {
 
-    if (this.controllerInstance == null) {
+    if (this.controllerInstance === null) {
         return false;
     }
     Object.defineProperty(this.controllerInstance, 'end', {
         value: function () {
-            application.sessionCollection.findAndModify({
-                _id: new externalLibs['mongoDriver'].ObjectID(this.sessionCookie)
-            },{
-                $natural: 1
-            },{
-                $set: {
-                    lastAccessed: new Date(),
-                    data: this.controllerInstance._SESSION
-                }
-            },{
-                new: true
-            }, function (err, doc) {
-                if (err) {
-                    res.statusCode = 500;
-                    console.log('ending request');
-                    res.end();
-                    console.log("couldn't update session in mongo", err);
-                } else {
-                    if (typeof this.controllerInstance.headers == "object" && !this.controllerInstance.headers.isEmpty()) {
-                        for (var headerName in this.controllerInstance.headers) {
-                            if (headerName.match(/set-cookie/i) == null) // IGNORE any cookies set manually through headers.
-                                res.setHeader(headerName, this.controllerInstance.headers[headerName]);
-                            else{
-                                console.log('Attempted to set cookie: ' + headerName + ' to ' + this.controllerInstance.headers[headerName] + ' in controller' + this.controllerName );
+            if (application.sessionCollection) {
+                application.sessionCollection.findAndModify({
+                    _id: new externalLibs.mongoDriver.ObjectID(this.sessionCookie)
+                },{
+                    $natural: 1
+                },{
+                    $set: {
+                        lastAccessed: new Date(),
+                        data: this.controllerInstance._SESSION
+                    }
+                },{
+                    new: true
+                }, function (err, doc) {
+                    if (err) {
+                        res.statusCode = 500;
+                        console.log('ending request');
+                        res.end();
+                        console.log("couldn't update session in mongo", err);
+                    } else {
+                        if (typeof this.controllerInstance.headers == "object" && !this.controllerInstance.headers.isEmpty()) {
+                            for (var headerName in this.controllerInstance.headers) {
+                                if (headerName.match(/set-cookie/i) === null) // IGNORE any cookies set manually through headers.
+                                    res.setHeader(headerName, this.controllerInstance.headers[headerName]);
+                                else{
+                                    console.log('Attempted to set cookie: ' + headerName + ' to ' + this.controllerInstance.headers[headerName] + ' in controller' + this.controllerName );
+                                }
                             }
                         }
-                    }
-                    res.setHeader('Set-Cookie', this.preparedCookies);
+                        res.setHeader('Set-Cookie', this.preparedCookies);
 
-                    res.statusCode = this.controllerInstance.statusCode || res.statusCode;
-                    switch (req.headers['accept']) {
-                        case 'application/json':
-                            //
-                            res.setHeader('Content-Type', 'application/json');
-                            if (typeof this.controllerInstance.response != "undefined") {
-                                res.write(JSON.stringify(this.controllerInstance.response));
-                            }
-                            console.log('ending request');
-                            res.end();
-                            return;
-                            //}
-                        case 'text/html':
-                        case '*/*':
-                        default :
-                            console.log('Serving HTML is Not implemented. Can not return any acceptable response');
-                            res.statusCode = 406;
-                            res.end();
-                            return;
-                            // this bit is not executed. come back to it later
-                            if (typeof this.response != "undefined")
-                                res.write(this.controllerInstance.response.toString());
+                        res.statusCode = this.controllerInstance.statusCode || res.statusCode;
+                        this.responder(req, res, this.controllerInstance);
                     }
-                    console.log('ending request');
-                    res.end();
-                }
-            }.bind(this));
+                }.bind(this));
+            } else {
+                this.parseHeaderAndRespond(req, res);
+            }
             // now go through the session data and save it to the db
         }.bind(this)
     });
     return true;
-}
+};
 
 constructor.prototype.multipartParse = function (req, res) {
 
@@ -271,7 +275,7 @@ constructor.prototype.multipartParse = function (req, res) {
      * @TODO: have a flag on the action so that the parsing can be done with progress function (or somethign similar).
      * @TODO: The progress function can be used to push over websocket the progress of the upload (or something along that line)
      */
-    var busboy = new externalLibs['busboy']({ headers: req.headers });
+    var busboy = new externalLibs.busboy({ headers: req.headers });
     var actions = 1;
     busboy.on('file', function (fieldname, file, filename, encoding, mimetype) {
         fieldname = unescape(fieldname.replace(/\+/g, ' '));
@@ -282,9 +286,9 @@ constructor.prototype.multipartParse = function (req, res) {
             encoding: encoding,
             mimetype: mimetype,
             tmpfName: tmpFileName
-        }
-        file.pipe(nodeNative['fs'].createWriteStream(tmpFileName)).on('unpipe', function () {
-            if (--actions == 0) {
+        };
+        file.pipe(nodeNative.fs.createWriteStream(tmpFileName)).on('unpipe', function () {
+            if (--actions === 0) {
                 this.runAction();
             }
         }.bind(this));
@@ -294,20 +298,20 @@ constructor.prototype.multipartParse = function (req, res) {
     }.bind(this));
     busboy.on('partsLimit', function () {
         throw new Error('Busboy parts limit reached');
-    })
+    });
     busboy.on('filesLimit', function () {
         throw new Error('Busboy parts limit reached');
-    })
+    });
     busboy.on('fieldsLimit', function () {
         throw new Error('Busboy parts limit reached');
-    })
+    });
     busboy.on('finish', function () {
-        if (--actions == 0) {
+        if (--actions === 0) {
             this.runAction();
         }
     }.bind(this));
     return req.pipe(busboy);
-}
+};
 
 constructor.prototype.parseRequest = function (req, res) {
 
@@ -321,13 +325,13 @@ constructor.prototype.parseRequest = function (req, res) {
             var requestData = '';
             req.on('data', function (data) {
                 requestData += data;
-            })
+            });
             req.on('end', function () {
-                var payload = undefined;
+                var payload;
                 try {
                     payload = JSON.parse(requestData);
                 } catch (e) {
-                    payload = requestData
+                    payload = requestData;
                 } finally {
                     Object.defineProperty(this.controllerInstance, '_PAYLOAD', {
                         enumerable: true,
@@ -348,29 +352,29 @@ constructor.prototype.parseRequest = function (req, res) {
                 multiPartParse = true;
             } else {
                 // just put the contents on the payload as is.
-                this.controllerInstance['payload'] = "";
+                this.controllerInstance.payload = "";
                 req.on('data', function (data) {
-                    this.controllerInstance['payload'] += data;
+                    this.controllerInstance.payload += data;
                 }.bind(this));
                 req.on('end', function () {
                     this.runAction();
-                }.bind(this))
+                }.bind(this));
                 return true;
             }
             break;
     }
-    if (multiPartParse == true) {
+    if (multiPartParse === true) {
         this.multipartParse(req, res);
     } else {
         console.log('how the fuck did it get here?!');
         this.runAction();
     }
     return true;
-}
+};
 constructor.prototype.runAction = function () {
     this.controllerInstance[this.actionMethod + this.actionName]();
     return true;
-}
+};
 
 constructor.prototype.serveAction = function (req, res) {
     if (typeof application.controllers[this.controllerName].prototype[this.actionMethod + this.actionName] == 'function') {
@@ -379,7 +383,7 @@ constructor.prototype.serveAction = function (req, res) {
             console.log('returning false');
             return false;
         }
-        if (typeof this.controllerInstance != 'object' || this.controllerInstance == null) {
+        if (typeof this.controllerInstance !== 'object' || this.controllerInstance === null) {
             console.log('returning false');
             return false;
         }
@@ -449,28 +453,28 @@ constructor.prototype.serveAction = function (req, res) {
         // this option will get to use up the rest of the urlParams after the controller has taken all it needs.
         return this.parseRequest(req, res);
     } else {
-        console.log("Controller " + this.controllerName + " does not contain a method: " + this.actionMethod + this.actionName + "")
+        console.log("Controller " + this.controllerName + " does not contain a method: " + this.actionMethod + this.actionName + "");
         return false;
     }
-}
+};
 constructor.prototype.sessionInit = function (req, res) {
-    if (typeof application['sessionCollection'] == 'undefined') {
+    if (typeof application.sessionCollection === 'undefined') {
         if (!this.serveAction(req, res)) { // serve the action as is ... got no sessions! NO IN MEMORY SESSIONS! DO NOT !!! Not scalable ... bad
             res.statusCode = 501;
             console.log('ending request');
             res.end();
-            console.log("couldn't serve the action")
+            console.log("couldn't serve the action");
         }
         console.log('serving without sessions');
         return; // regardless of whether an error was returned or not just return
     }
-    if (typeof req.headers['cookie'] == 'string') {
+    if (typeof req.headers.cookie === 'string') {
         this.incomingCookies = externalLibs.cookie.parse(req.headers.cookie);
         this.sessionCookie = this.incomingCookies[application.options.session.sessVarName];
         delete this.incomingCookies[application.options.session.sessVarName];
     }
     application.sessionCollection.findAndModify({
-        _id: new externalLibs['mongoDriver'].ObjectID(this.sessionCookie)
+        _id: new externalLibs.mongoDriver.ObjectID(this.sessionCookie)
     },{
         $natural: 1
     },
@@ -488,7 +492,7 @@ constructor.prototype.sessionInit = function (req, res) {
             res.end();
             console.log("couldn't create session in mongo", err);
         } else {
-            if(this.sessionCookie == undefined){
+            if(this.sessionCookie === undefined){
                 this.preparedCookies.push(externalLibs.cookie.serialize(application.options.session.sessVarName, doc._id.toString()));
             }
             this.sessionCookie = doc._id.toString();
@@ -499,11 +503,11 @@ constructor.prototype.sessionInit = function (req, res) {
                 res.statusCode = 501;
                 console.log('ending request');
                 res.end();
-                console.log("couldn't serve the action")
+                console.log("couldn't serve the action");
             }
         }
     }.bind(this));
-}
+};
 constructor.prototype.process = function (req, res) {
     if (application.acceptedMethods.indexOf(req.method) == -1) { // simply refuse unaccepted methods.
         res.statusCode = 501;
@@ -529,7 +533,7 @@ constructor.prototype.process = function (req, res) {
         return;
     }
     this.sessionInit(req, res);
-}
+};
 
 
 /**
@@ -543,8 +547,8 @@ module.exports.routerClass = constructor;
  * @returns {function(this:constructor)}
  */
 module.exports.HTTPServerFunction = function (pathToApplication, options) {
-    application['pathToApp'] = pathToApplication;
-    application['options'] = options;
+    application.pathToApp = pathToApplication;
+    application.options = options;
     var canProcess = true;
     if (typeof application.options.session == 'undefined') {
         application.options.session = {};
@@ -555,30 +559,29 @@ module.exports.HTTPServerFunction = function (pathToApplication, options) {
     if (typeof application.options.session.collName != "string") {
         application.options.session.collName = '__y_sessions';
     }
-    if (typeof application['options']['mongo'] == 'object' && typeof application.options.mongo.url == 'string') {
+    if (typeof application.options.mongo === 'object' && typeof application.options.mongo.url === 'string') {
         canProcess = false;
-        externalLibs['mongoDriver'] = require('mongodb');
-        externalLibs['mongoDriver'].connect(application.options.mongo.url, function (err, db) {
+        externalLibs.mongoDriver = require('mongodb');
+        externalLibs.mongoDriver.connect(application.options.mongo.url, function (err, db) {
             if (err) throw err; // fatal ?!
-            application['mongoConn'] = db;
+            application.mongoConn = db;
             var baseController = require('./Controller.js');
-            baseController.prototype.db = application['mongoConn']; // adds to ALL controllers
-            baseController.prototype.db.ObjectID = externalLibs['mongoDriver'].ObjectID;
+            baseController.prototype.db = application.mongoConn; // adds to ALL controllers
+            baseController.prototype.db.ObjectID = externalLibs.mongoDriver.ObjectID;
             application.sessionCollection = baseController.prototype.db.collection(application.options.session.collName);
             application.sessionCollection.ensureIndex({
                 lastAccessed: 1
             }, {
-                expireAfterSeconds: (typeof options['session'] == "object" && options.session != null && typeof options.session.expireAfterSeconds == "number") ? options.session.expireAfterSeconds : 7200 // 2 hours
+                expireAfterSeconds: (typeof options.session === "object" && options.session !== null && typeof options.session.expireAfterSeconds === "number") ? options.session.expireAfterSeconds : 7200 // 2 hours
             }, function () {
                 canProcess = true;
-            })
+            });
         });
     }
     return function (req, res) {
         try {
-            if (canProcess == false) {
+            if (canProcess === false) {
                 throw new Error('Still initializing... can not process');
-                return;
             }
             var requestProcessor = new constructor();
             console.log('Serving request for url: ', req.url, 'from ', req.connection.remoteAddress, req.connection.remotePort);
@@ -589,9 +592,9 @@ module.exports.HTTPServerFunction = function (pathToApplication, options) {
             res.end();
             console.log("Uncaught exception", e, e.stack);
         }
-    }
-}
+    };
+};
 
 module.exports.getMongoConn = function(){
-    return application['mongoConn'];
-}
+    return application.mongoConn;
+};
