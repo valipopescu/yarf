@@ -247,8 +247,13 @@ constructor.prototype.createEndFunction = function (req, res) {
                         case 'text/html':
                         case '*/*':
                         default :
-                            //if (typeof this.response == "string" && !this.response.isEmpty())
-                            res.write(this.controllerInstance.response.toString());
+                            console.log('Serving HTML is Not implemented');
+                            res.statusCode = 501;
+                            res.end();
+                            return;
+                            // this bit is not executed. come back to it later
+                            if (typeof this.response != "undefined")
+                                res.write(this.controllerInstance.response.toString());
                     }
                     console.log('ending request');
                     res.end();
