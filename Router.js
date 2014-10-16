@@ -63,10 +63,10 @@ var constructor = function () {
 
     Object.defineProperty(this, "actionName", {
         get: function self () {
-            if (this.controllerName === "" || this.controllerPath === "") {
+            if (this.controllerName == "" || this.controllerPath == "") {
                 return "";
             }
-            if (actionName === "") {
+            if (actionName == "") {
                 if (this.requestedURL.pathArray.isEmpty()) {
                     actionName = "index";
                 } else {
@@ -183,9 +183,9 @@ constructor.prototype.serveOptions = function (req, res) {
                 continue;// ignore base Object methods. it may well be that there's a method in the controller called isEmpty...
                 // it won't be ignored (mainly because it can't be identical to the one in Object ... if it is then it's ignored)
             }
-            if (typeof application.controllers[this.controllerName].prototype[controllerMethodName] == "function" && controllerMethodName.match(methodRegexp) !== null) {
+            if (typeof application.controllers[this.controllerName].prototype[controllerMethodName] == "function" && controllerMethodName.match(methodRegexp) != null) {
                 var acceptedMethod = controllerMethodName.replace(methodRegexp, "").toUpperCase();
-                if (acceptedMethod === "") {
+                if (acceptedMethod == "") {
                     acceptedMethod = "GET";
                 }
                 if (application.acceptedMethods.indexOf(acceptedMethod) >= 0) {
@@ -205,7 +205,7 @@ constructor.prototype.loadViewAndSend = function(req,res){
     // first try to see whether we can load a view, or have any preloaded (same way we do it with controllers) once done first time it's automatically done after that.
     console.log('path: ', nodeNative.path.join(application.pathToApp, 'Views', this.controllerName, this.actionMethod + this.actionName + ".js"));
     var viewInstance = null;
-    if(application.views[this.controllerName] && typeof application.views[this.controllerName][this.actionMethod + this.actionName] === "function"){ // typeof outputs STRING ONLY why check complete equality when you already know it is string v string don't put === in that case
+    if(application.views[this.controllerName] && typeof application.views[this.controllerName][this.actionMethod + this.actionName] == "function"){
         viewInstance = new application.views[this.controllerName][this.actionMethod + this.actionName](this.controllerInstance.response);
     }else{
         var physicalPath = nodeNative.path.join(application.pathToApp, 'Views', this.controllerName, this.actionMethod + this.actionName + ".js");// you could call them .view.js if you like that better.
@@ -221,7 +221,7 @@ constructor.prototype.loadViewAndSend = function(req,res){
             res.end();
             return;
         }
-        if(typeof application.views[this.controllerName][this.actionMethod + this.actionName] == "function"){ // typeof outputs STRING ONLY why check complete equality when you already know it is string v string don't put === in that case
+        if(typeof application.views[this.controllerName][this.actionMethod + this.actionName] == "function"){
             viewInstance = new application.views[this.controllerName][this.actionMethod + this.actionName]();
         }else{
             res.setHeader("Acceptable", "Accept: application/json"); // since that is default defined
@@ -248,7 +248,7 @@ constructor.prototype.parseHeaderAndRespond = function(req, res) {
         case 'text/html':
         case '*/*':
         default :
-            if (typeof this.controllerInstance.response === 'string') {
+            if (typeof this.controllerInstance.response == 'string') {
                 res.setHeader('Content-Type', 'text/html');
                 res.write(this.controllerInstance.response);
             } else {
@@ -261,7 +261,7 @@ constructor.prototype.parseHeaderAndRespond = function(req, res) {
 
 constructor.prototype.createEndFunction = function (req, res) {
 
-    if (this.controllerInstance === null) {
+    if (this.controllerInstance == null) {
         return false;
     }
     Object.defineProperty(this.controllerInstance, 'end', {
@@ -287,7 +287,7 @@ constructor.prototype.createEndFunction = function (req, res) {
                     } else {
                         if (typeof this.controllerInstance.headers == "object" && !this.controllerInstance.headers.isEmpty()) {
                             for (var headerName in this.controllerInstance.headers) {
-                                if (headerName.match(/set-cookie/i) === null) // IGNORE any cookies set manually through headers.
+                                if (headerName.match(/set-cookie/i) == null) // IGNORE any cookies set manually through headers.
                                     res.setHeader(headerName, this.controllerInstance.headers[headerName]);
                                 else{
                                     console.log('Attempted to set cookie: ' + headerName + ' to ' + this.controllerInstance.headers[headerName] + ' in controller' + this.controllerName );
@@ -328,7 +328,7 @@ constructor.prototype.multipartParse = function (req, res) {
             tmpfName: tmpFileName
         };
         file.pipe(nodeNative.fs.createWriteStream(tmpFileName)).on('unpipe', function () {
-            if (--actions === 0) {
+            if (--actions == 0) {
                 this.runAction();
             }
         }.bind(this));
@@ -346,7 +346,7 @@ constructor.prototype.multipartParse = function (req, res) {
         throw new Error('Busboy parts limit reached');
     });
     busboy.on('finish', function () {
-        if (--actions === 0) {
+        if (--actions == 0) {
             this.runAction();
         }
     }.bind(this));
@@ -403,7 +403,7 @@ constructor.prototype.parseRequest = function (req, res) {
             }
             break;
     }
-    if (multiPartParse === true) {
+    if (multiPartParse == true) {
         this.multipartParse(req, res);
     } else {
         console.log('how the fuck did it get here?!');
@@ -423,7 +423,7 @@ constructor.prototype.serveAction = function (req, res) {
             console.log('returning false');
             return false;
         }
-        if (typeof this.controllerInstance !== 'object' || this.controllerInstance === null) {
+        if (typeof this.controllerInstance != 'object' || this.controllerInstance == null) {
             console.log('returning false');
             return false;
         }
@@ -498,7 +498,7 @@ constructor.prototype.serveAction = function (req, res) {
     }
 };
 constructor.prototype.sessionInit = function (req, res) {
-    if (typeof application.sessionCollection === 'undefined') {
+    if (typeof application.sessionCollection == 'undefined') {
         if (!this.serveAction(req, res)) { // serve the action as is ... got no sessions! NO IN MEMORY SESSIONS! DO NOT !!! Not scalable ... bad
             res.statusCode = 501;
             console.log('ending request');
@@ -508,7 +508,7 @@ constructor.prototype.sessionInit = function (req, res) {
         console.log('serving without sessions');
         return; // regardless of whether an error was returned or not just return
     }
-    if (typeof req.headers.cookie === 'string') {
+    if (typeof req.headers.cookie == 'string') {
         this.incomingCookies = externalLibs.cookie.parse(req.headers.cookie);
         this.sessionCookie = this.incomingCookies[application.options.session.sessVarName];
         delete this.incomingCookies[application.options.session.sessVarName];
@@ -532,7 +532,7 @@ constructor.prototype.sessionInit = function (req, res) {
             res.end();
             console.log("couldn't create session in mongo", err);
         } else {
-            if(this.sessionCookie === undefined){
+            if(this.sessionCookie == undefined){
                 this.preparedCookies.push(externalLibs.cookie.serialize(application.options.session.sessVarName, doc._id.toString()));
             }
             this.sessionCookie = doc._id.toString();
@@ -599,7 +599,7 @@ module.exports.HTTPServerFunction = function (pathToApplication, options) {
     if (typeof application.options.session.collName != "string") {
         application.options.session.collName = '__y_sessions';
     }
-    if (typeof application.options.mongo === 'object' && typeof application.options.mongo.url === 'string') {
+    if (typeof application.options.mongo == 'object' && typeof application.options.mongo.url == 'string') {
         canProcess = false;
         externalLibs.mongoDriver = require('mongodb');
         externalLibs.mongoDriver.connect(application.options.mongo.url, function (err, db) {
@@ -612,7 +612,7 @@ module.exports.HTTPServerFunction = function (pathToApplication, options) {
             application.sessionCollection.ensureIndex({
                 lastAccessed: 1
             }, {
-                expireAfterSeconds: (typeof options.session === "object" && options.session !== null && typeof options.session.expireAfterSeconds === "number") ? options.session.expireAfterSeconds : 7200 // 2 hours
+                expireAfterSeconds: (typeof options.session == "object" && options.session != null && typeof options.session.expireAfterSeconds == "number") ? options.session.expireAfterSeconds : 7200 // 2 hours
             }, function () {
                 canProcess = true;
             });
@@ -620,7 +620,7 @@ module.exports.HTTPServerFunction = function (pathToApplication, options) {
     }
     return function (req, res) {
         try {
-            if (canProcess === false) {
+            if (canProcess == false) {
                 throw new Error('Still initializing... can not process');
             }
             var requestProcessor = new constructor();

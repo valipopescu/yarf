@@ -28,15 +28,15 @@ exports.start = function (portNumber, pathToApplication, options) {
     if (typeof(portNumber) != "number") {
         return false;
     }
-    if (typeof pathToApplication === 'undefined' || isEmpty(pathToApplication)) {
+    if (typeof pathToApplication == 'undefined' || isEmpty(pathToApplication)) {
         console.log("invalid path to application:", pathToApplication);
         return false;
     }
-    if (typeof options.mongo === 'undefined'){
+    if (typeof options.mongo == 'undefined'){
         console.log('running without mongodb means no sessions');
     }
     var httpServer;
-    if (typeof options.sslCfg === "undefined" || typeof options.sslCfg.key === "undefined" || typeof options.sslCfg.cert === "undefined") {
+    if (typeof options.sslCfg == "undefined" || typeof options.sslCfg.key == "undefined" || typeof options.sslCfg.cert == "undefined") {
         httpServer = nodeNative.http.createServer(server.HTTPServerFunction(pathToApplication, options));
     } else {
         httpServer = nodeNative.http.createServer({key: options.sslCfg.key, cert: options.sslCfg.cert}, server.HTTPServerFunction(pathToApplication, options));
