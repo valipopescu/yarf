@@ -243,19 +243,6 @@ constructor.prototype.parseHeaderAndRespond = function(req, res) {
         case 'text/html':
         case '*/*':
         default :
-            // if (typeof this.controllerInstance.htmlResponse !== "undefined" && this.controllerInstance.htmlResponse !== null) {
-            //     res.setHeader('Content-Type', 'text/html');
-            //     res.write(this.controllerInstance.htmlResponse);
-            // } else {
-            //     res.setHeader('Content-Type', 'application/json');
-            //     if (typeof this.controllerInstance.response === 'undefined' || this.controllerInstance.response === null){
-            //         res.write(JSON.stringify({
-            //             message: 'No data for your request'
-            //         }));
-            //     } else {
-            //         res.write(this.controllerInstance.response.toString());
-            //     }
-            // }
             if (typeof this.controllerInstance.response === 'string') {
                 res.setHeader('Content-Type', 'text/html');
                 res.write(this.controllerInstance.response);
