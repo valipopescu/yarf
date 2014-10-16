@@ -19,27 +19,28 @@ var externalLibs = {
  * Application Object (holds statics)
  * @type {{}}
  */
-var application = {};
-/**
- * Static path to app.
- * @type {string}
- */
-application.pathToApp = "";
-/**
- * Accepted methods (static)
- * @type {string[]}
- */
-application.acceptedMethods = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'];
-/**
- * Can the application server start?
- * @type {boolean}
- */
-application.canStart = true;
-/**
- * Mime Types
- * @type {string{string}}
- */
-application.mimeTypes = JSON.parse(nodeNative.fs.readFileSync(__dirname + "/mime.json", "utf8"));
+var application = {
+    /**
+     * Accepted methods (static)
+     * @type {string[]}
+     */
+    acceptedMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'],
+    /**
+     * Static path to app.
+     * @type {string}
+     */
+    pathToApp : "",
+    /**
+     * Can the application server start?
+     * @type {boolean}
+     */
+    canStart: true,
+    /**
+     * Mime Types
+     * @type {string{string}}
+     */
+    mimeTypes: JSON.parse(nodeNative.fs.readFileSync(__dirname + "/mime.json", "utf8"))
+};
 
 if (Object.isEmpty(application.mimeTypes)) { // should not be able to start if there's no mime types preloaded.
     console.log("unable to load mime.json");
@@ -50,7 +51,7 @@ if (Object.isEmpty(application.mimeTypes)) { // should not be able to start if t
  * @type {{}}
  */
 application.controllers = {};
-
+application.views = {};
 
 /**
  * Base Class for HTTP Server Fucntion. Will be used as base class for the WS(S) as well.
@@ -199,6 +200,35 @@ constructor.prototype.serveOptions = function (req, res) {
     }
     return false; // wasn't options
 };
+constructor.prototype.loadViewAndSend = function(req,res){
+    // TODO can be improved in readability but that's basically what it should do
+    // first try to see whether we can load a view, or have any preloaded (same way we do it with controllers) once done first time it's automatically done after that.
+    var viewInstance = null;
+    if(typeof application.views[this.controllerName][this.controllerInstance.actionMethod + this.controllerInstance.actionName] == "function"){ // typeof outputs STRING ONLY why check complete equality when you already know it is string v string don't put === in that case
+        viewInstance = new application.views[this.controllerName][this.controllerInstance.actionMethod + this.controllerInstance.actionName](this.controllerInstance.response);
+    }else{
+        var physicalPath = nodeNative.path.join(application.pathToApp, 'Views', this.controllerName, this.controllerInstance.actionMethod + this.controllerInstance.actionName + ".js");// you could call them .view.js if you like that better.
+        if(nodeNative.fs.existsSync(physicalPath)){
+            application.views[this.controllerName][this.controllerInstance.actionMethod + this.controllerInstance.actionName] = require(physicalPath);
+        }else{
+            // no view was found respond with the fact the bloody thing is not supported (406)
+            res.setHeader("Acceptable", "Accept: application/json"); // since that is default defined
+            res.statusCode = 406;
+            res.end();
+            return;
+        }
+        if(typeof application.views[this.controllerName][this.controllerInstance.actionMethod + this.controllerInstance.actionName] == "function"){ // typeof outputs STRING ONLY why check complete equality when you already know it is string v string don't put === in that case
+            viewInstance = new application.views[this.controllerName][this.controllerInstance.actionMethod + this.controllerInstance.actionName](this.controllerInstance.response);
+        }else{
+            res.setHeader("Acceptable", "Accept: application/json"); // since that is default defined
+            res.statusCode = 406;
+            res.end();
+            return;
+        }
+    }
+    res.setHeader('Content-Type', 'text/html');
+    res.send(viewInstance); // job done.
+};
 constructor.prototype.parseHeaderAndRespond = function(req, res) {
     switch (req.headers.accept) {
         case 'application/json':
@@ -230,13 +260,7 @@ constructor.prototype.parseHeaderAndRespond = function(req, res) {
                 res.setHeader('Content-Type', 'text/html');
                 res.write(this.controllerInstance.response);
             } else {
-                if (typeof this.controllerInstance.response === 'undefined' || this.controllerInstance.response === null){
-                    res.write(JSON.stringify({
-                        message: 'No data for your request'
-                    }));
-                } else {
-                    res.write(this.controllerInstance.response.toString());
-                }
+                this.loadViewAndSend(req,res);
             }
     }
     console.log('ending request');
