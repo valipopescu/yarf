@@ -19,27 +19,28 @@ var externalLibs = {
  * Application Object (holds statics)
  * @type {{}}
  */
-var application = {};
-/**
- * Static path to app.
- * @type {string}
- */
-application.pathToApp = "";
-/**
- * Accepted methods (static)
- * @type {string[]}
- */
-application.acceptedMethods = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'];
-/**
- * Can the application server start?
- * @type {boolean}
- */
-application.canStart = true;
-/**
- * Mime Types
- * @type {string{string}}
- */
-application.mimeTypes = JSON.parse(nodeNative.fs.readFileSync(__dirname + "/mime.json", "utf8"));
+var application = {
+    /**
+     * Accepted methods (static)
+     * @type {string[]}
+     */
+    acceptedMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'],
+    /**
+     * Static path to app.
+     * @type {string}
+     */
+    pathToApp : "",
+    /**
+     * Can the application server start?
+     * @type {boolean}
+     */
+    canStart: true,
+    /**
+     * Mime Types
+     * @type {string{string}}
+     */
+    mimeTypes: JSON.parse(nodeNative.fs.readFileSync(__dirname + "/mime.json", "utf8"))
+};
 
 if (Object.isEmpty(application.mimeTypes)) { // should not be able to start if there's no mime types preloaded.
     console.log("unable to load mime.json");
@@ -50,7 +51,7 @@ if (Object.isEmpty(application.mimeTypes)) { // should not be able to start if t
  * @type {{}}
  */
 application.controllers = {};
-
+application.views = {};
 
 /**
  * Base Class for HTTP Server Fucntion. Will be used as base class for the WS(S) as well.
@@ -94,7 +95,7 @@ var constructor = function () {
  * @returns {boolean}
  */
 constructor.prototype.servePhysicalFiles = function (req, res) { // gets them as params so that the methods can be reused.
-    var physicalPath = nodeNative.path.join(application['pathToApp'] , 'public' , this.requestedURL.pathname);
+    var physicalPath = nodeNative.path.join(application.pathToApp , 'public' , this.requestedURL.pathname);
     console.log("trying to serve physical path: ", physicalPath);
     if (nodeNative.fs.existsSync(physicalPath) &&
         nodeNative.fs.statSync(physicalPath).isFile()) { // serve physical file
@@ -112,10 +113,11 @@ constructor.prototype.servePhysicalFiles = function (req, res) { // gets them as
 
 constructor.prototype.loadController = function () {
     //TODO: controllers as files
+    var controllerDiskPath;
     if (this.requestedURL.pathArray.isEmpty()) { // index controller...
         this.controllerPath = "index";
         this.controllerName = "index";
-        var controllerDiskPath = nodeNative.path.join(application.pathToApp, "/Controllers/", this.controllerPath+'.js');
+        controllerDiskPath = nodeNative.path.join(application.pathToApp, "/Controllers/", this.controllerPath+'.js');
         if (nodeNative.fs.existsSync(controllerDiskPath)) {
             if (typeof(application.controllers[this.controllerName]) == "undefined") {
                 console.log("Loading ... ", this.controllerName);
@@ -132,7 +134,7 @@ constructor.prototype.loadController = function () {
             this.controllerPath = this.controllerPath + "/" + this.requestedURL.pathArray[pathComponent];
             this.controllerName = this.requestedURL.pathArray[pathComponent];
             //console.log(this);
-            var controllerDiskPath = nodeNative.path.join(application.pathToApp, "/Controllers/", this.controllerPath+'.js');
+            controllerDiskPath = nodeNative.path.join(application.pathToApp, "/Controllers/", this.controllerPath+'.js');
             console.log(controllerDiskPath);
             if (nodeNative.fs.existsSync(controllerDiskPath)) {
                 if (nodeNative.fs.existsSync(controllerDiskPath)) {
@@ -198,6 +200,40 @@ constructor.prototype.serveOptions = function (req, res) {
     }
     return false; // wasn't options
 };
+constructor.prototype.loadViewAndSend = function(req,res){
+    // TODO can be improved in readability but that's basically what it should do
+    // first try to see whether we can load a view, or have any preloaded (same way we do it with controllers) once done first time it's automatically done after that.
+    console.log('path: ', nodeNative.path.join(application.pathToApp, 'Views', this.controllerName, this.actionMethod + this.actionName + ".js"));
+    var viewInstance = null;
+    if(application.views[this.controllerName] && typeof application.views[this.controllerName][this.actionMethod + this.actionName] === "function"){ // typeof outputs STRING ONLY why check complete equality when you already know it is string v string don't put === in that case
+        viewInstance = new application.views[this.controllerName][this.actionMethod + this.actionName](this.controllerInstance.response);
+    }else{
+        var physicalPath = nodeNative.path.join(application.pathToApp, 'Views', this.controllerName, this.actionMethod + this.actionName + ".js");// you could call them .view.js if you like that better.
+        if(nodeNative.fs.existsSync(physicalPath)){
+            if (!application.views[this.controllerName]) {
+                application.views[this.controllerName] = {};
+            }
+            application.views[this.controllerName][this.actionMethod + this.actionName] = require(physicalPath);
+        }else{
+            // no view was found respond with the fact the bloody thing is not supported (406)
+            res.setHeader("Acceptable", "Accept: application/json"); // since that is default defined
+            res.statusCode = 406;
+            res.end();
+            return;
+        }
+        if(typeof application.views[this.controllerName][this.actionMethod + this.actionName] == "function"){ // typeof outputs STRING ONLY why check complete equality when you already know it is string v string don't put === in that case
+            viewInstance = new application.views[this.controllerName][this.actionMethod + this.actionName]();
+        }else{
+            res.setHeader("Acceptable", "Accept: application/json"); // since that is default defined
+            res.statusCode = 406;
+            res.end();
+            return;
+        }
+    }
+    res.setHeader('Content-Type', 'text/html');
+    res.write(viewInstance.render(this.controllerInstance.response));
+    res.end(); // job done.
+};
 constructor.prototype.parseHeaderAndRespond = function(req, res) {
     switch (req.headers.accept) {
         case 'application/json':
@@ -212,8 +248,12 @@ constructor.prototype.parseHeaderAndRespond = function(req, res) {
         case 'text/html':
         case '*/*':
         default :
-            //if (typeof this.controllerInstance.response == "string" && !this.controllerInstance.response.isEmpty())
-            res.write(this.controllerInstance.response.toString());
+            if (typeof this.controllerInstance.response === 'string') {
+                res.setHeader('Content-Type', 'text/html');
+                res.write(this.controllerInstance.response);
+            } else {
+                this.loadViewAndSend(req,res);
+            }
     }
     console.log('ending request');
     res.end();
