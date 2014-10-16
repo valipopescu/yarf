@@ -203,13 +203,17 @@ constructor.prototype.serveOptions = function (req, res) {
 constructor.prototype.loadViewAndSend = function(req,res){
     // TODO can be improved in readability but that's basically what it should do
     // first try to see whether we can load a view, or have any preloaded (same way we do it with controllers) once done first time it's automatically done after that.
+    console.log('path: ', nodeNative.path.join(application.pathToApp, 'Views', this.controllerName, this.actionMethod + this.actionName + ".js"));
     var viewInstance = null;
-    if(typeof application.views[this.controllerName][this.controllerInstance.actionMethod + this.controllerInstance.actionName] == "function"){ // typeof outputs STRING ONLY why check complete equality when you already know it is string v string don't put === in that case
-        viewInstance = new application.views[this.controllerName][this.controllerInstance.actionMethod + this.controllerInstance.actionName](this.controllerInstance.response);
+    if(application.views[this.controllerName] && typeof application.views[this.controllerName][this.actionMethod + this.actionName] === "function"){ // typeof outputs STRING ONLY why check complete equality when you already know it is string v string don't put === in that case
+        viewInstance = new application.views[this.controllerName][this.actionMethod + this.actionName](this.controllerInstance.response);
     }else{
-        var physicalPath = nodeNative.path.join(application.pathToApp, 'Views', this.controllerName, this.controllerInstance.actionMethod + this.controllerInstance.actionName + ".js");// you could call them .view.js if you like that better.
+        var physicalPath = nodeNative.path.join(application.pathToApp, 'Views', this.controllerName, this.actionMethod + this.actionName + ".js");// you could call them .view.js if you like that better.
         if(nodeNative.fs.existsSync(physicalPath)){
-            application.views[this.controllerName][this.controllerInstance.actionMethod + this.controllerInstance.actionName] = require(physicalPath);
+            if (!application.views[this.controllerName]) {
+                application.views[this.controllerName] = {};
+            }
+            application.views[this.controllerName][this.actionMethod + this.actionName] = require(physicalPath);
         }else{
             // no view was found respond with the fact the bloody thing is not supported (406)
             res.setHeader("Acceptable", "Accept: application/json"); // since that is default defined
@@ -217,8 +221,8 @@ constructor.prototype.loadViewAndSend = function(req,res){
             res.end();
             return;
         }
-        if(typeof application.views[this.controllerName][this.controllerInstance.actionMethod + this.controllerInstance.actionName] == "function"){ // typeof outputs STRING ONLY why check complete equality when you already know it is string v string don't put === in that case
-            viewInstance = new application.views[this.controllerName][this.controllerInstance.actionMethod + this.controllerInstance.actionName](this.controllerInstance.response);
+        if(typeof application.views[this.controllerName][this.actionMethod + this.actionName] == "function"){ // typeof outputs STRING ONLY why check complete equality when you already know it is string v string don't put === in that case
+            viewInstance = new application.views[this.controllerName][this.actionMethod + this.actionName]();
         }else{
             res.setHeader("Acceptable", "Accept: application/json"); // since that is default defined
             res.statusCode = 406;
@@ -227,7 +231,8 @@ constructor.prototype.loadViewAndSend = function(req,res){
         }
     }
     res.setHeader('Content-Type', 'text/html');
-    res.send(viewInstance); // job done.
+    res.write(viewInstance.render(this.controllerInstance.response));
+    res.end(); // job done.
 };
 constructor.prototype.parseHeaderAndRespond = function(req, res) {
     switch (req.headers.accept) {

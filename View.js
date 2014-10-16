@@ -1,6 +1,7 @@
 'use strict';
 
 var constructor = function () {
+    this.template = null;
     /**
      * Holds compiled template(s) for the view
      * @type {}
@@ -29,7 +30,7 @@ constructor.prototype.render = function () {
  * @returns {string}
  */
 constructor.prototype.toString = function(){
-    if(this.engine == null || typeof this.engine != 'object')
+    if(this.engine === null || typeof this.engine !== 'object')
         throw "No engine";
     var returnString = this.engine.render();
     if(typeof returnString != "string")
