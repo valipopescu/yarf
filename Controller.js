@@ -12,11 +12,6 @@ var constructor = function(){
     * html response
     * @type string
     */
-    this.htmlResponse = '';
-    /**
-     * Response headers
-     * @type {{}}
-     */
     this.headers = {};
     /**
      * Incoming Request Headers
