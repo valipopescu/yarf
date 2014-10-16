@@ -1,3 +1,4 @@
+'use strict';
 /**
  * Just some basic data needed for the Controllers
  */
@@ -7,6 +8,11 @@ var constructor = function(){
      * @type {mixed | ANY } Data Transfer Object preferably
      */
     this.response = {};
+    /**
+    * html response
+    * @type string
+    */
+    this.htmlResponse = '';
     /**
      * Response headers
      * @type {{}}
@@ -74,14 +80,14 @@ var constructor = function(){
      * @type {string}
      */
     this.remotePort = "";
-}
+};
 /**
  * Called when the method is finished with all its callbacks or whatever it has to do.
  * @Mandatory
  */
 constructor.prototype.end = function(){
 
-}
+};
 
 
 //

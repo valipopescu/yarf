@@ -94,7 +94,7 @@ var constructor = function () {
  * @returns {boolean}
  */
 constructor.prototype.servePhysicalFiles = function (req, res) { // gets them as params so that the methods can be reused.
-    var physicalPath = nodeNative.path.join(application['pathToApp'] , 'public' , this.requestedURL.pathname);
+    var physicalPath = nodeNative.path.join(application.pathToApp , 'public' , this.requestedURL.pathname);
     console.log("trying to serve physical path: ", physicalPath);
     if (nodeNative.fs.existsSync(physicalPath) &&
         nodeNative.fs.statSync(physicalPath).isFile()) { // serve physical file
@@ -112,10 +112,11 @@ constructor.prototype.servePhysicalFiles = function (req, res) { // gets them as
 
 constructor.prototype.loadController = function () {
     //TODO: controllers as files
+    var controllerDiskPath;
     if (this.requestedURL.pathArray.isEmpty()) { // index controller...
         this.controllerPath = "index";
         this.controllerName = "index";
-        var controllerDiskPath = nodeNative.path.join(application.pathToApp, "/Controllers/", this.controllerPath+'.js');
+        controllerDiskPath = nodeNative.path.join(application.pathToApp, "/Controllers/", this.controllerPath+'.js');
         if (nodeNative.fs.existsSync(controllerDiskPath)) {
             if (typeof(application.controllers[this.controllerName]) == "undefined") {
                 console.log("Loading ... ", this.controllerName);
@@ -132,7 +133,7 @@ constructor.prototype.loadController = function () {
             this.controllerPath = this.controllerPath + "/" + this.requestedURL.pathArray[pathComponent];
             this.controllerName = this.requestedURL.pathArray[pathComponent];
             //console.log(this);
-            var controllerDiskPath = nodeNative.path.join(application.pathToApp, "/Controllers/", this.controllerPath+'.js');
+            controllerDiskPath = nodeNative.path.join(application.pathToApp, "/Controllers/", this.controllerPath+'.js');
             console.log(controllerDiskPath);
             if (nodeNative.fs.existsSync(controllerDiskPath)) {
                 if (nodeNative.fs.existsSync(controllerDiskPath)) {
@@ -212,8 +213,19 @@ constructor.prototype.parseHeaderAndRespond = function(req, res) {
         case 'text/html':
         case '*/*':
         default :
-            //if (typeof this.controllerInstance.response == "string" && !this.controllerInstance.response.isEmpty())
-            res.write(this.controllerInstance.response.toString());
+            if (typeof this.controllerInstance.htmlResponse !== "undefined" && this.controllerInstance.htmlResponse !== null) {
+                res.setHeader('Content-Type', 'text/html');
+                res.write(this.controllerInstance.htmlResponse);
+            } else {
+                res.setHeader('Content-Type', 'application/json');
+                if (typeof this.controllerInstance.response === 'undefined' || this.controllerInstance.response === null){
+                    res.write(JSON.stringify({
+                        message: 'No data for your request'
+                    }));
+                } else {
+                    res.write(this.controllerInstance.response.toString());
+                }
+            }
     }
     console.log('ending request');
     res.end();

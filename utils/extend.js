@@ -12,4 +12,4 @@ Function.prototype.extends = function (baseClass) {
     } else {
         return this;
     }
-}
+};
