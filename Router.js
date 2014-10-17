@@ -297,7 +297,7 @@ constructor.prototype.createEndFunction = function (req, res) {
                         res.setHeader('Set-Cookie', this.preparedCookies);
 
                         res.statusCode = this.controllerInstance.statusCode || res.statusCode;
-                        this.responder(req, res, this.controllerInstance);
+                        this.parseHeaderAndRespond(req, res);
                     }
                 }.bind(this));
             } else {
@@ -354,7 +354,6 @@ constructor.prototype.multipartParse = function (req, res) {
 };
 
 constructor.prototype.parseRequest = function (req, res) {
-
     var multiPartParse = false;
     if (typeof(req.headers['content-type']) == 'undefined') {
         // might be a get request
