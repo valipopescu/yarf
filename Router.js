@@ -135,7 +135,6 @@ constructor.prototype.loadController = function () {
             this.controllerName = this.requestedURL.pathArray[pathComponent];
             //console.log(this);
             controllerDiskPath = nodeNative.path.join(application.pathToApp, "/Controllers/", this.controllerPath+'.js');
-            console.log(controllerDiskPath);
             if (nodeNative.fs.existsSync(controllerDiskPath)) {
                 if (nodeNative.fs.existsSync(controllerDiskPath)) {
                     if (typeof(application.controllers[this.controllerName]) == "undefined") {
@@ -203,22 +202,26 @@ constructor.prototype.serveOptions = function (req, res) {
 constructor.prototype.loadViewAndSend = function(req,res){
     // TODO can be improved in readability but that's basically what it should do
     // first try to see whether we can load a view, or have any preloaded (same way we do it with controllers) once done first time it's automatically done after that.
-    console.log('path: ', nodeNative.path.join(application.pathToApp, 'Views', this.controllerName, this.actionMethod + this.actionName + ".js"));
+    var physicalPath = nodeNative.path.join(application.pathToApp, 'Views', this.controllerName, this.actionMethod + this.actionName + ".js");// you could call them .view.js if you like that better.
+    console.log('path: ', physicalPath);
     var viewInstance = null;
     if(application.views[this.controllerName] && typeof application.views[this.controllerName][this.actionMethod + this.actionName] == "function"){
         viewInstance = new application.views[this.controllerName][this.actionMethod + this.actionName](this.controllerInstance.response);
     }else{
-        var physicalPath = nodeNative.path.join(application.pathToApp, 'Views', this.controllerName, this.actionMethod + this.actionName + ".js");// you could call them .view.js if you like that better.
         if(nodeNative.fs.existsSync(physicalPath)){
             if (!application.views[this.controllerName]) {
                 application.views[this.controllerName] = {};
             }
             application.views[this.controllerName][this.actionMethod + this.actionName] = require(physicalPath);
         }else{
-            // no view was found respond with the fact the bloody thing is not supported (406)
-            res.setHeader("Acceptable", "Accept: application/json"); // since that is default defined
-            res.statusCode = 406;
-            res.end();
+            try {
+                res.setHeader("Acceptable", "Accept: application/json"); // since that is default defined
+                res.statusCode = 406;
+                res.end();
+            }catch(e){
+                console.log(e);
+                return;
+            }
             return;
         }
         if(typeof application.views[this.controllerName][this.actionMethod + this.actionName] == "function"){
@@ -235,6 +238,21 @@ constructor.prototype.loadViewAndSend = function(req,res){
     res.end(); // job done.
 };
 constructor.prototype.parseHeaderAndRespond = function(req, res) {
+    console.log("typeof headers: ", typeof this.controllerInstance.headers );
+    console.log("isEmpty headers: ", this.controllerInstance.headers.isEmpty() );
+    if (typeof this.controllerInstance.headers == "object" && !this.controllerInstance.headers.isEmpty()) {
+        for (var headerName in this.controllerInstance.headers) {
+            if (headerName.match(/set-cookie/i) == null) {// IGNORE any cookies set manually through headers.
+                res.setHeader(headerName, this.controllerInstance.headers[headerName]);
+            } else {
+                console.log('Attempted to set cookie: ' + headerName + ' to ' + this.controllerInstance.headers[headerName] + ' in controller ' + this.controllerName );
+            }
+        }
+    }
+    res.setHeader('Set-Cookie', this.preparedCookies);
+
+    res.statusCode = this.controllerInstance.statusCode || res.statusCode;
+
     switch (req.headers.accept) {
         case 'application/json':
             res.setHeader('Content-Type', 'application/json');
@@ -252,7 +270,16 @@ constructor.prototype.parseHeaderAndRespond = function(req, res) {
                 res.setHeader('Content-Type', 'text/html');
                 res.write(this.controllerInstance.response);
             } else {
-                this.loadViewAndSend(req,res);
+                // treat images specially.
+                if(this.controllerInstance.response instanceof nodeNative.fs.ReadStream && this.controllerInstance.response.readable){
+                    if(typeof this.controllerInstance.headers['Content-Type'] == 'undefined'){
+                        console.log("\x1B[31;1mPiping without a content type. Maybe you meant to set one.\x1B[0m");
+                    }
+                    this.controllerInstance.response.pipe(res);
+                    return;
+                }else {
+                    this.loadViewAndSend(req, res);
+                }
             }
     }
     console.log('ending request');
@@ -285,18 +312,6 @@ constructor.prototype.createEndFunction = function (req, res) {
                         res.end();
                         console.log("couldn't update session in mongo", err);
                     } else {
-                        if (typeof this.controllerInstance.headers == "object" && !this.controllerInstance.headers.isEmpty()) {
-                            for (var headerName in this.controllerInstance.headers) {
-                                if (headerName.match(/set-cookie/i) == null) // IGNORE any cookies set manually through headers.
-                                    res.setHeader(headerName, this.controllerInstance.headers[headerName]);
-                                else{
-                                    console.log('Attempted to set cookie: ' + headerName + ' to ' + this.controllerInstance.headers[headerName] + ' in controller' + this.controllerName );
-                                }
-                            }
-                        }
-                        res.setHeader('Set-Cookie', this.preparedCookies);
-
-                        res.statusCode = this.controllerInstance.statusCode || res.statusCode;
                         this.parseHeaderAndRespond(req, res);
                     }
                 }.bind(this));
@@ -369,17 +384,18 @@ constructor.prototype.parseRequest = function (req, res) {
                 var payload;
                 try {
                     payload = JSON.parse(requestData);
-                } catch (e) {
-                    payload = requestData;
-                } finally {
                     Object.defineProperty(this.controllerInstance, '_PAYLOAD', {
                         enumerable: true,
                         configurable: false,
                         writeable: false,
                         value: payload
                     });
-                    this.runAction();
+                } catch (e) { // ignore the requests respond with 400 bad request.
+                    res.statusCode = 400;
+                    res.end();
+                    return;// don't continue
                 }
+
             }.bind(this));
             return true;
         case 'application/x-www-form-urlencoded':
@@ -391,11 +407,17 @@ constructor.prototype.parseRequest = function (req, res) {
                 multiPartParse = true;
             } else {
                 // just put the contents on the payload as is.
-                this.controllerInstance.payload = "";
+                var payload = "";
                 req.on('data', function (data) {
-                    this.controllerInstance.payload += data;
+                    payload += data;
                 }.bind(this));
                 req.on('end', function () {
+                    Object.defineProperty(this.controllerInstance, '_PAYLOAD', {
+                        enumerable: true,
+                        configurable: false,
+                        writeable: false,
+                        value: payload
+                    });
                     this.runAction();
                 }.bind(this));
                 return true;
