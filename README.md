@@ -25,6 +25,7 @@ MainAppFolder\
     |       |    |---file.jpg (or any other format)
 ```
 * **Controller** - contains the actions preceded by their HTTP Verbs. For example:
+
 ```javascript
 var constructor = function () {
     this.usersMapper = new(require('../Mappers/users.js'))();
@@ -58,7 +59,9 @@ constructor.prototype.postLogin = function () {
 module.exports = constructor;
 ```
 
+
 Controllers expose several **properties**:
+
 
 | Property Name        | What it does
 |:--------------------:|:------------
@@ -71,14 +74,18 @@ Controllers expose several **properties**:
 | `this.remoteIp`      | ip of the remote (for now it respects directly the X-Forwarded-For header, future versions will make it so it respects only from trusted list of ips)
 | `this.remotePort`    | the port of the remote connection. (when proxied the value may be inacurate)
 
+
 Controllers also expose the following methods:
+
 
 | Method Name         | What it does
 |:--------------------|:-------------
 | `this.setCookie`    | `function(cookieName, cookieValue, options)` Sets a cookie with the `cookieValue` value and `cookieName` name. Can add standard cookie options
 | `this.end`          | call this when you're done with your request and the system can send the data to the user.
 
+
 * **Mapper** - Contains data access layer. Will be used directly by the Controller. It has a `this.db` pointing to the current MongoDB connection An example:
+
 ```javascript
 var constructor = function () {
     Object.defineProperty(this, 'collection', {
