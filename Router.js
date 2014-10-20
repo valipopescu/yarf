@@ -388,12 +388,12 @@ constructor.prototype.parseRequest = function (req, res) {
                         writeable: false,
                         value: payload
                     });
+                    this.runAction();
                 } catch (e) { // ignore the requests respond with 400 bad request.
                     res.statusCode = 400;
                     res.end();
                     return;// don't continue
                 }
-
             }.bind(this));
             return true;
         case 'application/x-www-form-urlencoded':
