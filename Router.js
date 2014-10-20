@@ -238,8 +238,6 @@ constructor.prototype.loadViewAndSend = function(req,res){
     res.end(); // job done.
 };
 constructor.prototype.parseHeaderAndRespond = function(req, res) {
-    console.log("typeof headers: ", typeof this.controllerInstance.headers );
-    console.log("isEmpty headers: ", this.controllerInstance.headers.isEmpty() );
     if (typeof this.controllerInstance.headers == "object" && !this.controllerInstance.headers.isEmpty()) {
         for (var headerName in this.controllerInstance.headers) {
             if (headerName.match(/set-cookie/i) == null) {// IGNORE any cookies set manually through headers.
