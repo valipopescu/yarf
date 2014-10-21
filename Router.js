@@ -234,7 +234,8 @@ constructor.prototype.loadViewAndSend = function(req,res){
         }
     }
     res.setHeader('Content-Type', 'text/html');
-    res.write(viewInstance.render(this.controllerInstance.response));
+    res.write(""+viewInstance); // this is javascript ... just leave it to do its job... anyway i hated render with all my soul
+
     res.end(); // job done.
 };
 constructor.prototype.parseHeaderAndRespond = function(req, res) {
