@@ -1,4 +1,7 @@
 Object.defineProperty(Object.prototype, "isEmpty", {
+    configurable: true,
+    writeable: true,
+    enumerable: false,
     value: function (object) {
         var __this = this;
         if (typeof __this == "function") {
