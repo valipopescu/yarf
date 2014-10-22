@@ -225,7 +225,7 @@ constructor.prototype.loadViewAndSend = function(req,res){
             return;
         }
         if(typeof application.views[this.controllerName][this.actionMethod + this.actionName] == "function"){
-            viewInstance = new application.views[this.controllerName][this.actionMethod + this.actionName]();
+            viewInstance = new application.views[this.controllerName][this.actionMethod + this.actionName](this.controllerInstance.response);
         }else{
             res.setHeader("Acceptable", "Accept: application/json"); // since that is default defined
             res.statusCode = 406;
