@@ -181,6 +181,5 @@ yarf.start(8000, __dirname+"/Server", {
 ```
 
 ##Future Roadmap:
-* Uses location based views via EJS (closest to the way views are parsed in most PHP frameworks) or other template framework to reply to `Content-type: text/html` and `Content-Type: */*`
 * Interfaces with mySQL if need arises or other dbs.
 * Break the code a bit more from the Router.js eventually into more files
