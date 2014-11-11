@@ -39,7 +39,7 @@ var application = {
      * Mime Types
      * @type {string{string}}
      */
-    mimeTypes: JSON.parse(nodeNative.fs.readFileSync(__dirname + "/mime.json", "utf8"))
+    mimeTypes: require("./mime.json")
 };
 
 if (Object.isEmpty(application.mimeTypes)) { // should not be able to start if there's no mime types preloaded.
@@ -57,13 +57,13 @@ application.views = {};
  * Base Class for HTTP Server Fucntion. Will be used as base class for the WS(S) as well.
  */
 var constructor = function () {
+    this.controllerClass = null;
     this.controllerName = "";
-    this.controllerPath = "";
     var actionName = "";
 
     Object.defineProperty(this, "actionName", {
         get: function self () {
-            if (this.controllerName == "" || this.controllerPath == "") {
+            if (this.controllerClass == null) {
                 return "";
             }
             if (actionName == "") {
@@ -72,8 +72,8 @@ var constructor = function () {
                 } else {
                     actionName = this.requestedURL.pathArray.shift();
                 }
+                actionName = actionName.ucFirst();
             }
-            actionName = actionName.ucFirst();
             return actionName;
         },
         writeable: false,
@@ -112,48 +112,38 @@ constructor.prototype.servePhysicalFiles = function (req, res) { // gets them as
 };
 
 constructor.prototype.loadController = function () {
-    //TODO: controllers as files
     var controllerDiskPath;
     if (this.requestedURL.pathArray.isEmpty()) { // index controller...
-        this.controllerPath = "index";
-        this.controllerName = "index";
-        controllerDiskPath = nodeNative.path.join(application.pathToApp, "/Controllers/", this.controllerPath+'.js');
-        if (nodeNative.fs.existsSync(controllerDiskPath)) {
-            if (typeof(application.controllers[this.controllerName]) == "undefined") {
-                console.log("Loading ... ", this.controllerName);
-                application.controllers[this.controllerName] = require(controllerDiskPath);
-                console.log('Loaded: ', this.controllerName);
+        controllerDiskPath = nodeNative.path.join(application.pathToApp, "/Controllers/index.js");
+        try{
+            this.controllerClass = require(controllerDiskPath);
+            if(typeof this.controllerClass != "function"){
+                this.controllerClass = null;
+                return false;
             }
-            console.log('Serving Controller: ' + this.controllerName + " with action: " + this.actionMethod + this.actionName);
+            this.controllerName = "index";
             return true;
+        }catch(e){
+            return false;
         }
     }
+    var controllerPath = "";
     // any other controller
     for (var pathComponent in this.requestedURL.pathArray) {
         if (typeof this.requestedURL.pathArray[pathComponent] == 'string') {
-            this.controllerPath = this.controllerPath + "/" + this.requestedURL.pathArray[pathComponent];
-            this.controllerName = this.requestedURL.pathArray[pathComponent];
-            //console.log(this);
-            controllerDiskPath = nodeNative.path.join(application.pathToApp, "/Controllers/", this.controllerPath+'.js');
-            if (nodeNative.fs.existsSync(controllerDiskPath)) {
-                if (nodeNative.fs.existsSync(controllerDiskPath)) {
-                    if (typeof(application.controllers[this.controllerName]) == "undefined") {
-                        console.log("Loading ... ", this.controllerName);
-                        application.controllers[this.controllerName] = require(controllerDiskPath);
-                        if (typeof application.controllers[this.controllerName] != 'function') {
-                            // the loaded controller is not a constructor.
-                            return false;
-                        }
-                        console.log('Loaded: ', this.controllerName);
-                    }// else
-                    // regardless of whether a controller was loaded or not, the pathArray should now contain only the bit after the controller
-                    this.requestedURL.pathArray = this.requestedURL.pathname.replace(this.controllerPath, "").split("/").trim();
-                    console.log('Serving Controller: ' + this.controllerName + " with action: " + this.actionMethod + this.actionName);
-                    //var actionName = this.actionName; // only to trigger the property.
-                    return true;// loaded now or before, the controller should be loaded at this point.
-                }// else keep going
-            } else {
-                return false; // the requested path contains a path that can't be resolved on disk to a controller.
+            controllerPath += "/" + this.requestedURL.pathArray[pathComponent];
+            controllerDiskPath = nodeNative.path.join(application.pathToApp, "/Controllers/", controllerPath+'.js');
+            try{
+                this.controllerClass = require(controllerDiskPath);
+                if(typeof this.controllerClass != "function"){
+                    this.controllerClass = null;
+                    return false;
+                }else{
+                    this.controllerName = this.requestedURL.pathArray[pathComponent];
+                    this.requestedURL.pathArray = this.requestedURL.pathname.replace(controllerPath, "").split("/").trim();
+                }
+                return true;
+            }catch(e){
             }
         }
     }
@@ -169,7 +159,7 @@ constructor.prototype.loadController = function () {
 constructor.prototype.serveOptions = function (req, res) {
     // TODO add swagger library Controller on which all the swagger docblock parsing is done.
     if (req.method == "OPTIONS") {
-        if (this.controllerName.isEmpty() || this.controllerPath.isEmpty()) {
+        if (this.controllerClass == null) {
             console.log("serve Options called without a controller being loaded. Server error.");
             res.statusCode = 500; // no matter this got here it's an internal server error.
             return true;
@@ -177,12 +167,12 @@ constructor.prototype.serveOptions = function (req, res) {
         res.statusCode = 200; // no matter what this thing has options.
         var controllerAcceptedMethods = [];
         var methodRegexp = new RegExp(this.actionName, 'i');
-        for (var controllerMethodName in application.controllers[this.controllerName].prototype) {
-            if (Object.prototype[controllerMethodName] == application.controllers[this.controllerName].prototype[controllerMethodName]) {
+        for (var controllerMethodName in this.controllerClass.prototype) {
+            if (Object.prototype[controllerMethodName] == this.controllerClass.prototype[controllerMethodName]) {
                 continue;// ignore base Object methods. it may well be that there's a method in the controller called isEmpty...
                 // it won't be ignored (mainly because it can't be identical to the one in Object ... if it is then it's ignored)
             }
-            if (typeof application.controllers[this.controllerName].prototype[controllerMethodName] == "function" && controllerMethodName.match(methodRegexp) != null) {
+            if (typeof this.controllerClass.prototype[controllerMethodName] == "function" && controllerMethodName.match(methodRegexp) != null) {
                 var acceptedMethod = controllerMethodName.replace(methodRegexp, "").toUpperCase();
                 if (acceptedMethod == "") {
                     acceptedMethod = "GET";
@@ -239,6 +229,7 @@ constructor.prototype.loadViewAndSend = function(req,res){
     res.end(); // job done.
 };
 constructor.prototype.parseHeaderAndRespond = function(req, res) {
+    console.log(this.controllerInstance);
     if (typeof this.controllerInstance.headers == "object" && !this.controllerInstance.headers.isEmpty()) {
         for (var headerName in this.controllerInstance.headers) {
             if (headerName.match(/set-cookie/i) == null) {// IGNORE any cookies set manually through headers.
@@ -265,6 +256,10 @@ constructor.prototype.parseHeaderAndRespond = function(req, res) {
         case 'text/html':
         case '*/*':
         default :
+            if(typeof this.controllerInstance.response == "undefined"){
+                res.end();
+                return;
+            }
             if (typeof this.controllerInstance.response == 'string') {
                 res.setHeader('Content-Type', 'text/html');
                 res.write(this.controllerInstance.response);
@@ -290,8 +285,11 @@ constructor.prototype.createEndFunction = function (req, res) {
     if (this.controllerInstance == null) {
         return false;
     }
+    var calledEnd = false;
     Object.defineProperty(this.controllerInstance, 'end', {
         value: function () {
+            if(calledEnd)
+                return;
             if (application.sessionCollection) {
                 application.sessionCollection.findAndModify({
                     _id: new externalLibs.mongoDriver.ObjectID(this.sessionCookie)
@@ -312,10 +310,12 @@ constructor.prototype.createEndFunction = function (req, res) {
                         console.log("couldn't update session in mongo", err);
                     } else {
                         this.parseHeaderAndRespond(req, res);
+                        calledEnd = true;
                     }
                 }.bind(this));
             } else {
                 this.parseHeaderAndRespond(req, res);
+                calledEnd = true;
             }
             // now go through the session data and save it to the db
         }.bind(this)
@@ -437,8 +437,8 @@ constructor.prototype.runAction = function () {
 };
 
 constructor.prototype.serveAction = function (req, res) {
-    if (typeof application.controllers[this.controllerName].prototype[this.actionMethod + this.actionName] == 'function') {
-        this.controllerInstance = new application.controllers[this.controllerName]();
+    if (typeof this.controllerClass.prototype[this.actionMethod + this.actionName] == 'function') {
+        this.controllerInstance = new this.controllerClass();
         if (!this.createEndFunction(req, res)) {
             console.log('returning false');
             return false;
@@ -513,7 +513,7 @@ constructor.prototype.serveAction = function (req, res) {
         // this option will get to use up the rest of the urlParams after the controller has taken all it needs.
         return this.parseRequest(req, res);
     } else {
-        console.log("Controller " + this.controllerName + " does not contain a method: " + this.actionMethod + this.actionName + "");
+        console.log("Controller does not contain a method: " + this.actionMethod + this.actionName + "");
         return false;
     }
 };
