@@ -552,7 +552,7 @@ constructor.prototype.sessionInit = function (req, res) {
             res.end();
             console.log("couldn't create session in mongo", err);
         } else {
-            if(this.sessionCookie == undefined){
+            if(typeof this.sessionCookie == "undefined" || this.sessionCookie == null){
                 this.preparedCookies.push(externalLibs.cookie.serialize(application.options.session.sessVarName, doc._id.toString()));
             }
             this.sessionCookie = doc._id.toString();
