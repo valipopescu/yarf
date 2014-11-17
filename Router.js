@@ -504,7 +504,7 @@ constructor.prototype.serveAction = function (req, res) {
                 value: function(cookieName, cookieValue, options){
                     if(cookieName == application.options.session.sessVarName) // IGNORE setting the session cookie to something else.
                         return;
-                    this.preparedCookies.push(externalLibs.cookie.serialize(cookieName, cookieValue));
+                    this.preparedCookies.push(externalLibs.cookie.serialize(cookieName, cookieValue, options));
                 }.bind(this)
             }
         });
