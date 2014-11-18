@@ -124,6 +124,7 @@ constructor.prototype.loadController = function () {
             this.controllerName = "index";
             return true;
         }catch(e){
+            console.log("Error while loading controller: ", controllerDiskPath, ":\n", e.stack);
             return false;
         }
     }
@@ -144,6 +145,8 @@ constructor.prototype.loadController = function () {
                 }
                 return true;
             }catch(e){
+                console.log("Error while loading controller: ", controllerDiskPath, ":\n", e.stack);
+                return false;
             }
         }
     }
