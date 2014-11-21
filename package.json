@@ -1,6 +1,6 @@
 {
   "name": "yarf",
-  "description": "Yet Another Restful Framework, is what it says with the mention that it mimics YARF PHP (Porpoise).\n It brings all you know good about PHP into the world of Javascript without bringing any of the bad parts.\n VERY helpful if you want to port PHP applications to Node.js ",
+  "description": "Yet Another Restful Framework. Port PHP MVC Apps to Node! Develop new MVC + RESTful Apps. Provide Websocket APIs",
   "keywords": [
     "PHP",
     "YARF",
@@ -21,7 +21,7 @@
   "bugs": {
     "url": "https://github.com/thegeapy/yarf/issues"
   },
-  "version": "0.0.19",
+  "version": "0.0.20",
   "license": "AGPL-1.0",
   "repository": {
     "type": "git",
