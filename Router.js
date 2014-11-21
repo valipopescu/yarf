@@ -232,7 +232,7 @@ constructor.prototype.loadViewAndSend = function(req,res){
     res.end(); // job done.
 };
 constructor.prototype.parseHeaderAndRespond = function(req, res) {
-    console.log(this.controllerInstance);
+    //console.log(this.controllerInstance);
     if (typeof this.controllerInstance.headers == "object" && !this.controllerInstance.headers.isEmpty()) {
         for (var headerName in this.controllerInstance.headers) {
             if (headerName.match(/set-cookie/i) == null) {// IGNORE any cookies set manually through headers.
@@ -293,6 +293,7 @@ constructor.prototype.createEndFunction = function (req, res) {
         value: function () {
             if(calledEnd)
                 return;
+            calledEnd = true;
             if (application.sessionCollection) {
                 application.sessionCollection.findAndModify({
                     _id: new externalLibs.mongoDriver.ObjectID(this.sessionCookie)
@@ -313,12 +314,10 @@ constructor.prototype.createEndFunction = function (req, res) {
                         console.log("couldn't update session in mongo", err);
                     } else {
                         this.parseHeaderAndRespond(req, res);
-                        calledEnd = true;
                     }
                 }.bind(this));
             } else {
                 this.parseHeaderAndRespond(req, res);
-                calledEnd = true;
             }
             // now go through the session data and save it to the db
         }.bind(this)

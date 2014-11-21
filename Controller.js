@@ -76,6 +76,20 @@ var constructor = function(){
      */
     this.remotePort = "";
 };
+constructor.prototype.sendFile = function(filePath){
+    var fs = require('fs');
+    this.response = fs.createReadStream(filePath); // call it xhtml so that it's not taken by the autoindex
+    this.response.on('error', function(error){
+        console.log('Error while opening...', error);
+        this.response = undefined;
+        this.statusCode = 500;
+        this.end();
+    }.bind(this));
+    this.response.on('open', function(){
+        this.headers['Content-Type'] = "text/html";
+        this.end();
+    }.bind(this));
+}
 /**
  * Called when the method is finished with all its callbacks or whatever it has to do.
  * @Mandatory
