@@ -29,7 +29,7 @@ var application = {
      * Static path to app.
      * @type {string}
      */
-    pathToApp : "",
+    pathToApp: "",
     /**
      * Can the application server start?
      * @type {boolean}
@@ -56,7 +56,7 @@ application.views = {};
 /**
  * Base Class for HTTP Server Fucntion. Will be used as base class for the WS(S) as well.
  */
-var constructor = function () {
+var constructor = function() {
     this.controllerClass = null;
     this.controllerName = "";
     var actionName = "";
@@ -94,9 +94,8 @@ var constructor = function () {
  * @param res
  * @returns {boolean}
  */
-constructor.prototype.servePhysicalFiles = function (req, res) { // gets them as params so that the methods can be reused.
-    var physicalPath = nodeNative.path.join(application.pathToApp , 'public' , this.requestedURL.pathname);
-    console.log("trying to serve physical path: ", physicalPath);
+constructor.prototype.servePhysicalFiles = function(req, res) { // gets them as params so that the methods can be reused.
+    var physicalPath = nodeNative.path.join(application.pathToApp, 'public', this.requestedURL.pathname);
     if (nodeNative.fs.existsSync(physicalPath) &&
         nodeNative.fs.statSync(physicalPath).isFile()) { // serve physical file
         var fileExtension = req.url.substr((req.url.lastIndexOf(".")));
@@ -111,19 +110,19 @@ constructor.prototype.servePhysicalFiles = function (req, res) { // gets them as
     return false;
 };
 
-constructor.prototype.loadController = function () {
+constructor.prototype.loadController = function() {
     var controllerDiskPath;
     if (this.requestedURL.pathArray.isEmpty()) { // index controller...
         controllerDiskPath = nodeNative.path.join(application.pathToApp, "/Controllers/index.js");
-        try{
+        try {
             this.controllerClass = require(controllerDiskPath);
-            if(typeof this.controllerClass != "function"){
+            if (typeof this.controllerClass != "function") {
                 this.controllerClass = null;
                 return false;
             }
             this.controllerName = "index";
             return true;
-        }catch(e){
+        } catch (e) {
             console.log("Error while loading controller: ", controllerDiskPath, ":\n", e.stack);
             return false;
         }
@@ -133,19 +132,19 @@ constructor.prototype.loadController = function () {
     for (var pathComponent in this.requestedURL.pathArray) {
         if (typeof this.requestedURL.pathArray[pathComponent] == 'string') {
             controllerPath += "/" + this.requestedURL.pathArray[pathComponent];
-            controllerDiskPath = nodeNative.path.join(application.pathToApp, "/Controllers/", controllerPath+'.js');
-            try{
+            controllerDiskPath = nodeNative.path.join(application.pathToApp, "/Controllers/", controllerPath + '.js');
+            try {
                 this.controllerClass = require(controllerDiskPath);
-                if(typeof this.controllerClass != "function"){
+                if (typeof this.controllerClass != "function") {
                     this.controllerClass = null;
                     return false;
-                }else{
+                } else {
                     this.controllerName = this.requestedURL.pathArray[pathComponent];
                     this.requestedURL.pathArray = this.requestedURL.pathname.replace(controllerPath, "").split("/").trim();
                 }
                 return true;
-            }catch(e){
-                console.log("Error while loading controller: ", controllerDiskPath, ":\n", e.stack);
+            } catch (e) {
+                console.log("Error while loading controller: ", controllerDiskPath);
                 return false;
             }
         }
@@ -159,7 +158,7 @@ constructor.prototype.loadController = function () {
  * @param res
  * @returns {boolean}
  */
-constructor.prototype.serveOptions = function (req, res) {
+constructor.prototype.serveOptions = function(req, res) {
     // TODO add swagger library Controller on which all the swagger docblock parsing is done.
     if (req.method == "OPTIONS") {
         if (this.controllerClass == null) {
@@ -186,40 +185,40 @@ constructor.prototype.serveOptions = function (req, res) {
             }
         }
         res.setHeader("Allow", controllerAcceptedMethods.join(', '));
-        console.log('ending request');
+
         res.end();
         return true;
     }
     return false; // wasn't options
 };
-constructor.prototype.loadViewAndSend = function(req,res){
+constructor.prototype.loadViewAndSend = function(req, res) {
     // TODO can be improved in readability but that's basically what it should do
     // first try to see whether we can load a view, or have any preloaded (same way we do it with controllers) once done first time it's automatically done after that.
     var physicalPath = nodeNative.path.join(application.pathToApp, 'Views', this.controllerName, this.actionMethod + this.actionName + ".js");// you could call them .view.js if you like that better.
     console.log('path: ', physicalPath);
     var viewInstance = null;
-    if(application.views[this.controllerName] && typeof application.views[this.controllerName][this.actionMethod + this.actionName] == "function"){
+    if (application.views[this.controllerName] && typeof application.views[this.controllerName][this.actionMethod + this.actionName] == "function") {
         viewInstance = new application.views[this.controllerName][this.actionMethod + this.actionName](this.controllerInstance.response);
-    }else{
-        if(nodeNative.fs.existsSync(physicalPath)){
+    } else {
+        if (nodeNative.fs.existsSync(physicalPath)) {
             if (!application.views[this.controllerName]) {
                 application.views[this.controllerName] = {};
             }
             application.views[this.controllerName][this.actionMethod + this.actionName] = require(physicalPath);
-        }else{
+        } else {
             try {
                 res.setHeader("Acceptable", "Accept: application/json"); // since that is default defined
                 res.statusCode = 406;
                 res.end();
-            }catch(e){
+            } catch (e) {
                 console.log(e);
                 return;
             }
             return;
         }
-        if(typeof application.views[this.controllerName][this.actionMethod + this.actionName] == "function"){
+        if (typeof application.views[this.controllerName][this.actionMethod + this.actionName] == "function") {
             viewInstance = new application.views[this.controllerName][this.actionMethod + this.actionName](this.controllerInstance.response);
-        }else{
+        } else {
             res.setHeader("Acceptable", "Accept: application/json"); // since that is default defined
             res.statusCode = 406;
             res.end();
@@ -227,7 +226,7 @@ constructor.prototype.loadViewAndSend = function(req,res){
         }
     }
     res.setHeader('Content-Type', 'text/html');
-    res.write(""+viewInstance); // this is javascript ... just leave it to do its job... anyway i hated render with all my soul
+    res.write("" + viewInstance); // this is javascript ... just leave it to do its job... anyway i hated render with all my soul
 
     res.end(); // job done.
 };
@@ -238,7 +237,7 @@ constructor.prototype.parseHeaderAndRespond = function(req, res) {
             if (headerName.match(/set-cookie/i) == null) {// IGNORE any cookies set manually through headers.
                 res.setHeader(headerName, this.controllerInstance.headers[headerName]);
             } else {
-                console.log('Attempted to set cookie: ' + headerName + ' to ' + this.controllerInstance.headers[headerName] + ' in controller ' + this.controllerName );
+                console.log('Attempted to set cookie: ' + headerName + ' to ' + this.controllerInstance.headers[headerName] + ' in controller ' + this.controllerName);
             }
         }
     }
@@ -252,14 +251,14 @@ constructor.prototype.parseHeaderAndRespond = function(req, res) {
             if (typeof this.controllerInstance.response != "undefined") {
                 res.write(JSON.stringify(this.controllerInstance.response));
             }
-            console.log('ending request');
+
             res.end();
             return;
-            //}
+        //}
         case 'text/html':
         case '*/*':
         default :
-            if(typeof this.controllerInstance.response == "undefined"){
+            if (typeof this.controllerInstance.response == "undefined") {
                 res.end();
                 return;
             }
@@ -268,48 +267,48 @@ constructor.prototype.parseHeaderAndRespond = function(req, res) {
                 res.write(this.controllerInstance.response);
             } else {
                 // treat images specially.
-                if(this.controllerInstance.response instanceof nodeNative.fs.ReadStream && this.controllerInstance.response.readable){
-                    if(typeof this.controllerInstance.headers['Content-Type'] == 'undefined'){
+                if (this.controllerInstance.response instanceof nodeNative.fs.ReadStream && this.controllerInstance.response.readable) {
+                    if (typeof this.controllerInstance.headers['Content-Type'] == 'undefined') {
                         console.log("\x1B[31;1mPiping without a content type. Maybe you meant to set one.\x1B[0m");
                     }
                     this.controllerInstance.response.pipe(res);
                     return;
-                }else {
+                } else {
                     this.loadViewAndSend(req, res);
                 }
             }
     }
-    console.log('ending request');
+
     res.end();
 };
 
-constructor.prototype.createEndFunction = function (req, res) {
+constructor.prototype.createEndFunction = function(req, res) {
 
     if (this.controllerInstance == null) {
         return false;
     }
     var calledEnd = false;
     Object.defineProperty(this.controllerInstance, 'end', {
-        value: function () {
-            if(calledEnd)
+        value: function() {
+            if (calledEnd)
                 return;
             calledEnd = true;
             if (application.sessionCollection) {
                 application.sessionCollection.findAndModify({
                     _id: new externalLibs.mongoDriver.ObjectID(this.sessionCookie)
-                },{
+                }, {
                     $natural: 1
-                },{
+                }, {
                     $set: {
                         lastAccessed: new Date(),
                         data: this.controllerInstance._SESSION
                     }
-                },{
+                }, {
                     new: true
-                }, function (err, doc) {
+                }, function(err, doc) {
                     if (err) {
                         res.statusCode = 500;
-                        console.log('ending request');
+
                         res.end();
                         console.log("couldn't update session in mongo", err);
                     } else {
@@ -325,7 +324,7 @@ constructor.prototype.createEndFunction = function (req, res) {
     return true;
 };
 
-constructor.prototype.multipartParse = function (req, res) {
+constructor.prototype.multipartParse = function(req, res) {
 
     /**
      * @TODO: have a flag on the action so that the parsing can be done with progress function (or somethign similar).
@@ -333,7 +332,7 @@ constructor.prototype.multipartParse = function (req, res) {
      */
     var busboy = new externalLibs.busboy({ headers: req.headers });
     var actions = 1;
-    busboy.on('file', function (fieldname, file, filename, encoding, mimetype) {
+    busboy.on('file', function(fieldname, file, filename, encoding, mimetype) {
         fieldname = unescape(fieldname.replace(/\+/g, ' '));
         ++actions;
         var tmpFileName = nodeNative.path.join(nodeNative.os.tmpdir(), 'yarfTmpFile_' + (new Date()).getTime().toString(16) + Math.round(Math.random() * 1e15).toString(16));
@@ -343,25 +342,25 @@ constructor.prototype.multipartParse = function (req, res) {
             mimetype: mimetype,
             tmpfName: tmpFileName
         };
-        file.pipe(nodeNative.fs.createWriteStream(tmpFileName)).on('unpipe', function () {
+        file.pipe(nodeNative.fs.createWriteStream(tmpFileName)).on('unpipe', function() {
             if (--actions == 0) {
                 this.runAction();
             }
         }.bind(this));
     }.bind(this));
-    busboy.on('field', function (fieldname, val, fieldnameTruncated, valTruncated) {
+    busboy.on('field', function(fieldname, val, fieldnameTruncated, valTruncated) {
         this.controllerInstance._POST[unescape(fieldname.replace(/\+/g, ' '))] = unescape(val.replace(/\+/g, ' '));
     }.bind(this));
-    busboy.on('partsLimit', function () {
+    busboy.on('partsLimit', function() {
         throw new Error('Busboy parts limit reached');
     });
-    busboy.on('filesLimit', function () {
+    busboy.on('filesLimit', function() {
         throw new Error('Busboy parts limit reached');
     });
-    busboy.on('fieldsLimit', function () {
+    busboy.on('fieldsLimit', function() {
         throw new Error('Busboy parts limit reached');
     });
-    busboy.on('finish', function () {
+    busboy.on('finish', function() {
         if (--actions == 0) {
             this.runAction();
         }
@@ -369,7 +368,7 @@ constructor.prototype.multipartParse = function (req, res) {
     return req.pipe(busboy);
 };
 
-constructor.prototype.parseRequest = function (req, res) {
+constructor.prototype.parseRequest = function(req, res) {
     var multiPartParse = false;
     if (typeof(req.headers['content-type']) == 'undefined') {
         // might be a get request
@@ -378,10 +377,10 @@ constructor.prototype.parseRequest = function (req, res) {
     switch (req.headers['content-type']) {
         case 'application/json':
             var requestData = '';
-            req.on('data', function (data) {
+            req.on('data', function(data) {
                 requestData += data;
             });
-            req.on('end', function () {
+            req.on('end', function() {
                 var payload;
                 try {
                     payload = JSON.parse(requestData);
@@ -409,10 +408,10 @@ constructor.prototype.parseRequest = function (req, res) {
             } else {
                 // just put the contents on the payload as is.
                 var payload = "";
-                req.on('data', function (data) {
+                req.on('data', function(data) {
                     payload += data;
                 }.bind(this));
-                req.on('end', function () {
+                req.on('end', function() {
                     Object.defineProperty(this.controllerInstance, '_PAYLOAD', {
                         enumerable: true,
                         configurable: false,
@@ -433,12 +432,12 @@ constructor.prototype.parseRequest = function (req, res) {
     }
     return true;
 };
-constructor.prototype.runAction = function () {
+constructor.prototype.runAction = function() {
     this.controllerInstance[this.actionMethod + this.actionName]();
     return true;
 };
 
-constructor.prototype.serveAction = function (req, res) {
+constructor.prototype.serveAction = function(req, res) {
     if (typeof this.controllerClass.prototype[this.actionMethod + this.actionName] == 'function') {
         this.controllerInstance = new this.controllerClass();
         if (!this.createEndFunction(req, res)) {
@@ -451,13 +450,13 @@ constructor.prototype.serveAction = function (req, res) {
         }
         // inside the instance start defining properties:
         Object.defineProperties(this.controllerInstance, {
-            remoteIp:{
+            remoteIp: {
                 enumerable: true,
                 configurable: false,
                 writeable: false,
                 value: req.headers['X-Forwarded-For'] || req.connection.remoteAddress
             },
-            remotePort:{
+            remotePort: {
                 enumerable: true,
                 configurable: false,
                 writeable: false,
@@ -503,8 +502,8 @@ constructor.prototype.serveAction = function (req, res) {
                 enumerable: false,
                 configurable: false,
                 writeable: false,
-                value: function(cookieName, cookieValue, options){
-                    if(cookieName == application.options.session.sessVarName) // IGNORE setting the session cookie to something else.
+                value: function(cookieName, cookieValue, options) {
+                    if (cookieName == application.options.session.sessVarName) // IGNORE setting the session cookie to something else.
                         return;
                     this.preparedCookies.push(externalLibs.cookie.serialize(cookieName, cookieValue, options));
                 }.bind(this)
@@ -519,11 +518,11 @@ constructor.prototype.serveAction = function (req, res) {
         return false;
     }
 };
-constructor.prototype.sessionInit = function (req, res) {
+constructor.prototype.sessionInit = function(req, res) {
     if (typeof application.sessionCollection == 'undefined') {
         if (!this.serveAction(req, res)) { // serve the action as is ... got no sessions! NO IN MEMORY SESSIONS! DO NOT !!! Not scalable ... bad
             res.statusCode = 501;
-            console.log('ending request');
+
             res.end();
             console.log("couldn't serve the action");
         }
@@ -536,44 +535,44 @@ constructor.prototype.sessionInit = function (req, res) {
         delete this.incomingCookies[application.options.session.sessVarName];
     }
     application.sessionCollection.findAndModify({
-        _id: new externalLibs.mongoDriver.ObjectID(this.sessionCookie)
-    },{
-        $natural: 1
-    },
-    {
-        $set: {
-            lastAccessed: new Date()
-        }
-    },{
-        new: true,
-        upsert: true
-    }, function (err, doc) {
-        if (err) {
-            res.statusCode = 500;
-            console.log('ending request');
-            res.end();
-            console.log("couldn't create session in mongo", err);
-        } else {
-            if(typeof this.sessionCookie == "undefined" || this.sessionCookie == null){
-                this.preparedCookies.push(externalLibs.cookie.serialize(application.options.session.sessVarName, doc._id.toString()));
+            _id: new externalLibs.mongoDriver.ObjectID(this.sessionCookie)
+        }, {
+            $natural: 1
+        },
+        {
+            $set: {
+                lastAccessed: new Date()
             }
-            this.sessionCookie = doc._id.toString();
-            for (var sessionVarName in doc.data) {
-                this.session[sessionVarName] = doc.data[sessionVarName];
-            }
-            if (!this.serveAction(req, res)) {
-                res.statusCode = 501;
-                console.log('ending request');
+        }, {
+            new: true,
+            upsert: true
+        }, function(err, doc) {
+            if (err) {
+                res.statusCode = 500;
+
                 res.end();
-                console.log("couldn't serve the action");
+                console.log("couldn't create session in mongo", err);
+            } else {
+                if (typeof this.sessionCookie == "undefined" || this.sessionCookie == null) {
+                    this.preparedCookies.push(externalLibs.cookie.serialize(application.options.session.sessVarName, doc._id.toString()));
+                }
+                this.sessionCookie = doc._id.toString();
+                for (var sessionVarName in doc.data) {
+                    this.session[sessionVarName] = doc.data[sessionVarName];
+                }
+                if (!this.serveAction(req, res)) {
+                    res.statusCode = 501;
+
+                    res.end();
+                    console.log("couldn't serve the action");
+                }
             }
-        }
-    }.bind(this));
+        }.bind(this));
 };
-constructor.prototype.process = function (req, res) {
+constructor.prototype.process = function(req, res) {
     if (application.acceptedMethods.indexOf(req.method) == -1) { // simply refuse unaccepted methods.
         res.statusCode = 501;
-        console.log('ending request');
+
         res.end();
         return;
     }
@@ -586,7 +585,7 @@ constructor.prototype.process = function (req, res) {
     this.requestedURL.pathArray = this.requestedURL.pathname.split('/').trim();
     if (!this.loadController()) {
         res.statusCode = 500;
-        console.log('ending request');
+
         res.end();
         console.log("Couldn't load controller for the " + req.url + " request");
         return;
@@ -608,7 +607,7 @@ module.exports.routerClass = constructor;
  * creates a new server function.
  * @returns {function(this:constructor)}
  */
-module.exports.HTTPServerFunction = function (pathToApplication, options) {
+module.exports.HTTPServerFunction = function(pathToApplication, options) {
     application.pathToApp = pathToApplication;
     application.options = options;
     var canProcess = true;
@@ -624,7 +623,7 @@ module.exports.HTTPServerFunction = function (pathToApplication, options) {
     if (typeof application.options.mongo == 'object' && typeof application.options.mongo.url == 'string') {
         canProcess = false;
         externalLibs.mongoDriver = require('mongodb');
-        externalLibs.mongoDriver.connect(application.options.mongo.url, function (err, db) {
+        externalLibs.mongoDriver.connect(application.options.mongo.url, function(err, db) {
             if (err) throw err; // fatal ?!
             application.mongoConn = db;
             var baseController = require('./Controller.js');
@@ -635,12 +634,12 @@ module.exports.HTTPServerFunction = function (pathToApplication, options) {
                 lastAccessed: 1
             }, {
                 expireAfterSeconds: (typeof options.session == "object" && options.session != null && typeof options.session.expireAfterSeconds == "number") ? options.session.expireAfterSeconds : 7200 // 2 hours
-            }, function () {
+            }, function() {
                 canProcess = true;
             });
         });
     }
-    return function (req, res) {
+    return function(req, res) {
         try {
             if (canProcess == false) {
                 throw new Error('Still initializing... can not process');
@@ -650,13 +649,13 @@ module.exports.HTTPServerFunction = function (pathToApplication, options) {
             requestProcessor.process(req, res);
         } catch (e) {
             res.statusCode = 500;
-            console.log('ending request');
+
             res.end();
             console.log("Uncaught exception", e, e.stack);
         }
     };
 };
 
-module.exports.getMongoConn = function(){
+module.exports.getMongoConn = function() {
     return application.mongoConn;
 };
