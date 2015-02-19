@@ -520,14 +520,9 @@ constructor.prototype.serveAction = function(req, res) {
 };
 constructor.prototype.sessionInit = function(req, res) {
     if (typeof application.sessionCollection == 'undefined') {
-        if (!this.serveAction(req, res)) { // serve the action as is ... got no sessions! NO IN MEMORY SESSIONS! DO NOT !!! Not scalable ... bad
-            res.statusCode = 501;
-
-            res.end();
-            console.log("couldn't serve the action");
-        }
-        console.log('serving without sessions');
-        return; // regardless of whether an error was returned or not just return
+        res.statusCode = 501;
+        res.end();
+        console.log("couldn't serve the action because there was no session collection while the sessions were enabled.");
     }
     if (typeof req.headers.cookie == 'string') {
         this.incomingCookies = externalLibs.cookie.parse(req.headers.cookie);
@@ -593,7 +588,17 @@ constructor.prototype.process = function(req, res) {
     if (this.serveOptions(req, res)) {// served already s
         return;
     }
-    this.sessionInit(req, res);
+    if(application.options.useSessions)
+        this.sessionInit(req, res);
+    else {
+        if (!this.serveAction(req, res)) {
+            res.statusCode = 501;
+
+            res.end();
+            console.log("couldn't serve the action");
+        }
+        return; // regardless of whether an error was returned or not just return
+    }
 };
 
 
@@ -611,14 +616,21 @@ module.exports.HTTPServerFunction = function(pathToApplication, options) {
     application.pathToApp = pathToApplication;
     application.options = options;
     var canProcess = true;
-    if (typeof application.options.session == 'undefined') {
-        application.options.session = {};
+    if(typeof application.options.useSessions == 'boolean' || application.options.useSessions == true){
+        application.options.useSessions = true;
+    }else{
+        application.options.useSessions = false;
     }
-    if (typeof application.options.session.sessVarName != "string") {
-        application.options.session.sessVarName = 'yjs';
-    }
-    if (typeof application.options.session.collName != "string") {
-        application.options.session.collName = '__y_sessions';
+    if(application.options.useSessions) {
+        if (typeof application.options.session == 'undefined') {
+            application.options.session = {};
+        }
+        if (typeof application.options.session.sessVarName != "string") {
+            application.options.session.sessVarName = 'yjs';
+        }
+        if (typeof application.options.session.collName != "string") {
+            application.options.session.collName = 'yarf_sessions';
+        }
     }
     if (typeof application.options.mongo == 'object' && typeof application.options.mongo.url == 'string') {
         canProcess = false;
@@ -629,14 +641,17 @@ module.exports.HTTPServerFunction = function(pathToApplication, options) {
             var baseController = require('./Controller.js');
             baseController.prototype.db = application.mongoConn; // adds to ALL controllers
             baseController.prototype.db.ObjectID = externalLibs.mongoDriver.ObjectID;
-            application.sessionCollection = baseController.prototype.db.collection(application.options.session.collName);
-            application.sessionCollection.ensureIndex({
-                lastAccessed: 1
-            }, {
-                expireAfterSeconds: (typeof options.session == "object" && options.session != null && typeof options.session.expireAfterSeconds == "number") ? options.session.expireAfterSeconds : 7200 // 2 hours
-            }, function() {
+            if(application.options.useSessions) {
+                application.sessionCollection = baseController.prototype.db.collection(application.options.session.collName);
+                application.sessionCollection.ensureIndex({
+                    lastAccessed: 1
+                }, {
+                    expireAfterSeconds: (typeof options.session == "object" && options.session != null && typeof options.session.expireAfterSeconds == "number") ? options.session.expireAfterSeconds : 7200 // 2 hours
+                }, function () {
+                    canProcess = true;
+                });
+            }else
                 canProcess = true;
-            });
         });
     }
     return function(req, res) {
